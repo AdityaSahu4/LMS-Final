@@ -1616,13 +1616,13 @@ export default function OrganizationDetails() {
                             <div className="flex-1">
                               <label className="flex items-center justify-center w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-primary transition-colors">
                                 <Upload className="w-5 h-5 text-gray-400 mr-2" />
-                                <span className="text-sm text-gray-600">
-                                  {doc.file ? doc.file.name : 'Choose file...'}
+                                <span className="text-sm text-gray-600 truncate max-w-[200px]">
+                                  {doc.file ? (typeof doc.file === 'string' ? doc.file.split('/').pop() : doc.file.name) : 'Choose file...'}
                                 </span>
                                 <input
                                   type="file"
                                   accept=".pdf"
-                                  onChange={(e) => {
+                                  onChange={async (e) => {
                                     const file = e.target.files[0]
                                     if (file) {
                                       const maxSize = 2 * 1024 * 1024
@@ -1634,7 +1634,17 @@ export default function OrganizationDetails() {
                                         toast.error('Please upload PDF files only')
                                         return
                                       }
-                                      updateComplianceDocument(doc.id, 'file', file)
+
+                                      try {
+                                        setLoading(true)
+                                        const fileUrl = await uploadFile(file, 'compliance')
+                                        updateComplianceDocument(doc.id, 'file', fileUrl)
+                                        toast.success('File uploaded successfully!')
+                                      } catch (error) {
+                                        toast.error('File upload failed: ' + error.message)
+                                      } finally {
+                                        setLoading(false)
+                                      }
                                     }
                                   }}
                                   className="hidden"
@@ -1986,13 +1996,13 @@ export default function OrganizationDetails() {
                                 <div className="flex-1">
                                   <label className="flex items-center justify-center w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-primary transition-colors">
                                     <Upload className="w-5 h-5 text-gray-400 mr-2" />
-                                    <span className="text-sm text-gray-600">
-                                      {doc.certificateFile ? doc.certificateFile.name : 'Choose file...'}
+                                    <span className="text-sm text-gray-600 truncate max-w-[200px]">
+                                      {doc.certificateFile ? (typeof doc.certificateFile === 'string' ? doc.certificateFile.split('/').pop() : doc.certificateFile.name) : 'Choose file...'}
                                     </span>
                                     <input
                                       type="file"
                                       accept=".pdf"
-                                      onChange={(e) => {
+                                      onChange={async (e) => {
                                         const file = e.target.files[0]
                                         if (file) {
                                           const maxSize = 2 * 1024 * 1024
@@ -2004,7 +2014,17 @@ export default function OrganizationDetails() {
                                             toast.error('Please upload PDF files only')
                                             return
                                           }
-                                          updateAccreditationDocument(doc.id, 'certificateFile', file)
+
+                                          try {
+                                            setLoading(true)
+                                            const fileUrl = await uploadFile(file, 'accreditation')
+                                            updateAccreditationDocument(doc.id, 'certificateFile', fileUrl)
+                                            toast.success('Certificate uploaded successfully!')
+                                          } catch (error) {
+                                            toast.error('File upload failed: ' + error.message)
+                                          } finally {
+                                            setLoading(false)
+                                          }
                                         }
                                       }}
                                       className="hidden"
@@ -2036,12 +2056,12 @@ export default function OrganizationDetails() {
                                   <label className="flex items-center justify-center w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-primary transition-colors">
                                     <Upload className="w-5 h-5 text-gray-400 mr-2" />
                                     <span className="text-sm text-gray-600">
-                                      {doc.scopeFile ? doc.scopeFile.name : 'Choose file...'}
+                                      {doc.scopeFile ? (typeof doc.scopeFile === 'string' ? doc.scopeFile.split('/').pop() : doc.scopeFile.name) : 'Choose file...'}
                                     </span>
                                     <input
                                       type="file"
                                       accept=".pdf"
-                                      onChange={(e) => {
+                                      onChange={async (e) => {
                                         const file = e.target.files[0]
                                         if (file) {
                                           const maxSize = 2 * 1024 * 1024
@@ -2053,7 +2073,17 @@ export default function OrganizationDetails() {
                                             toast.error('Please upload PDF files only')
                                             return
                                           }
-                                          updateAccreditationDocument(doc.id, 'scopeFile', file)
+
+                                          try {
+                                            setLoading(true)
+                                            const fileUrl = await uploadFile(file, 'accreditation')
+                                            updateAccreditationDocument(doc.id, 'scopeFile', fileUrl)
+                                            toast.success('Scope uploaded successfully!')
+                                          } catch (error) {
+                                            toast.error('File upload failed: ' + error.message)
+                                          } finally {
+                                            setLoading(false)
+                                          }
                                         }
                                       }}
                                       className="hidden"
@@ -2328,7 +2358,7 @@ export default function OrganizationDetails() {
                         <label className="flex items-center justify-center w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-primary transition-colors">
                           <Upload className="w-5 h-5 text-gray-400 mr-2" />
                           <span className="text-sm text-gray-600">
-                            {formData.qualityManualDocument ? formData.qualityManualDocument.name : 'Choose file...'}
+                            {formData.qualityManualDocument ? (typeof formData.qualityManualDocument === 'string' ? formData.qualityManualDocument.split('/').pop() : formData.qualityManualDocument.name) : 'Choose file...'}
                           </span>
                           <input
                             type="file"
@@ -2606,12 +2636,12 @@ export default function OrganizationDetails() {
                                 <label className="flex items-center justify-center w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-primary transition-colors">
                                   <Upload className="w-5 h-5 text-gray-400 mr-2" />
                                   <span className="text-sm text-gray-600">
-                                    {procedure.file ? procedure.file.name : 'Choose file...'}
+                                    {procedure.file ? (typeof procedure.file === 'string' ? procedure.file.split('/').pop() : procedure.file.name) : 'Choose file...'}
                                   </span>
                                   <input
                                     type="file"
                                     accept=".pdf"
-                                    onChange={(e) => {
+                                    onChange={async (e) => {
                                       const file = e.target.files[0]
                                       if (file) {
                                         const maxSize = 2 * 1024 * 1024
@@ -2623,7 +2653,17 @@ export default function OrganizationDetails() {
                                           toast.error('Please upload PDF files only')
                                           return
                                         }
-                                        updateQualityProcedure(procedure.id, 'file', file)
+
+                                        try {
+                                          setLoading(true)
+                                          const fileUrl = await uploadFile(file, 'quality')
+                                          updateQualityProcedure(procedure.id, 'file', fileUrl)
+                                          toast.success('Document uploaded successfully!')
+                                        } catch (error) {
+                                          toast.error('File upload failed: ' + error.message)
+                                        } finally {
+                                          setLoading(false)
+                                        }
                                       }
                                     }}
                                     className="hidden"
