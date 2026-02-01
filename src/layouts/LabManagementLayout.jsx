@@ -1,10 +1,10 @@
 import { NavLink, Outlet, useNavigate, Link, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  LayoutDashboard, 
-  Users, 
-  FileText, 
-  DollarSign, 
+import {
+  LayoutDashboard,
+  Users,
+  FileText,
+  DollarSign,
   FolderKanban,
   FlaskConical,
   TestTube,
@@ -53,9 +53,9 @@ const navigation = [
   { name: 'NCRs', href: '/lab/management/ncrs', icon: AlertTriangle },
   { name: 'Certifications', href: '/lab/management/certifications', icon: Shield },
   { name: 'Calendar', href: '/lab/management/calendar', icon: Calendar },
-  { name: 'Lab Recommendations', href: '/lab/management/lab-recommendations', icon: TrendingUp },
   { name: 'Inventory Management', href: '/lab/management/inventory', icon: Package },
   { name: 'Quality Assurance', href: '/lab/management/qa', icon: Shield },
+  { name: 'Lab Recommendations', href: '/lab/management/lab-recommendations', icon: TrendingUp },
 ]
 
 function LabManagementLayout() {
@@ -123,9 +123,8 @@ function LabManagementLayout() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-72 bg-white border-r border-gray-200 shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`fixed inset-y-0 left-0 z-40 w-72 bg-white border-r border-gray-200 shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
@@ -145,35 +144,31 @@ function LabManagementLayout() {
           {/* Navigation */}
           <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
             {navigation.map((item) => {
-              const isActive = location.pathname === item.href || 
-                               location.pathname.startsWith(item.href + '/')
+              const isActive = location.pathname === item.href ||
+                location.pathname.startsWith(item.href + '/')
               return (
                 <NavLink
                   key={item.name}
                   to={item.href}
                   className={({ isActive }) =>
-                    `group flex items-center justify-between rounded-xl px-4 py-3 transition-all duration-200 ${
-                      isActive
-                        ? 'bg-primary text-white shadow-sm'
-                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    `group flex items-center justify-between rounded-xl px-4 py-3 transition-all duration-200 ${isActive
+                      ? 'bg-primary text-white shadow-sm'
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                     }`
                   }
                 >
                   <div className="flex items-center space-x-3">
                     <div
-                      className={`flex h-10 w-10 items-center justify-center rounded-xl border ${
-                        isActive
-                          ? 'border-primary-600 bg-white/20 text-white'
-                          : 'border-gray-200 bg-white text-gray-500'
-                      }`}
+                      className={`flex h-10 w-10 items-center justify-center rounded-xl border ${isActive
+                        ? 'border-primary-600 bg-white/20 text-white'
+                        : 'border-gray-200 bg-white text-gray-500'
+                        }`}
                     >
                       <item.icon className="w-5 h-5" />
                     </div>
                     <span className="font-medium tracking-tight">{item.name}</span>
                   </div>
-                  {isActive && (
-                    <div className="h-6 w-6 rounded-full border border-white/40 bg-white/10"></div>
-                  )}
+
                 </NavLink>
               )
             })}
@@ -226,7 +221,7 @@ function LabManagementLayout() {
               </div>
               <div className="flex items-center gap-4 ml-4">
                 <div className="relative" ref={notificationRef}>
-                  <button 
+                  <button
                     onClick={() => setNotificationsOpen(!notificationsOpen)}
                     className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
                   >
@@ -263,20 +258,18 @@ function LabManagementLayout() {
                             notifications.map((notification) => (
                               <div
                                 key={notification.id}
-                                className={`p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer ${
-                                  !notification.read ? 'bg-blue-50/50' : ''
-                                }`}
+                                className={`p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer ${!notification.read ? 'bg-blue-50/50' : ''
+                                  }`}
                                 onClick={() => {
                                   // Mark as read and handle click
                                   setNotificationsOpen(false)
                                 }}
                               >
                                 <div className="flex items-start gap-3">
-                                  <div className={`mt-1 p-1.5 rounded-lg ${
-                                    notification.type === 'success' ? 'bg-green-100 text-green-600' :
+                                  <div className={`mt-1 p-1.5 rounded-lg ${notification.type === 'success' ? 'bg-green-100 text-green-600' :
                                     notification.type === 'warning' ? 'bg-yellow-100 text-yellow-600' :
-                                    'bg-blue-100 text-blue-600'
-                                  }`}>
+                                      'bg-blue-100 text-blue-600'
+                                    }`}>
                                     {notification.type === 'success' && <CheckCircle className="w-4 h-4" />}
                                     {notification.type === 'warning' && <AlertCircle className="w-4 h-4" />}
                                     {notification.type === 'info' && <Info className="w-4 h-4" />}

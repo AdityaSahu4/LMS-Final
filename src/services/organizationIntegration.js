@@ -290,6 +290,11 @@ export async function saveOrganizationStep(organizationId, step, formData) {
                 organizationMapper.mapQualityFormats(formData)
             );
 
+        case 11:
+            // Step 11 is the checklist/review step - no data to save
+            // Just return success to allow navigation
+            return { success: true };
+
         default:
             throw new Error(`Invalid step: ${step}`);
     }

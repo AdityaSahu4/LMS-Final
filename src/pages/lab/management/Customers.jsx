@@ -6,6 +6,7 @@ import { customersService } from '../../../services/labManagementApi'
 import toast from 'react-hot-toast'
 import Modal from '../../../components/labManagement/Modal'
 import CreateCustomerForm from '../../../components/labManagement/forms/CreateCustomerForm'
+import CustomerProfileModal from '../../../components/labManagement/modals/CustomerProfileModal'
 
 function Customers() {
   const navigate = useNavigate()
@@ -13,6 +14,8 @@ function Customers() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showProfileModal, setShowProfileModal] = useState(false)
+  const [selectedCustomer, setSelectedCustomer] = useState(null)
 
   useEffect(() => {
     loadCustomers()
@@ -54,7 +57,7 @@ function Customers() {
           <h1 className="text-3xl font-bold text-gray-900">Customers</h1>
           <p className="mt-2 text-gray-600">Manage your customer relationships</p>
         </div>
-        <button 
+        <button
           onClick={() => setShowCreateModal(true)}
           className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors flex items-center gap-2"
         >
@@ -107,7 +110,11 @@ function Customers() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}
-                  className="hover:bg-gray-50 transition-colors"
+                  className="hover:bg-gray-50 transition-colors cursor-pointer"
+                  onClick={() => {
+                    setSelectedCustomer(customer)
+                    setShowProfileModal(true)
+                  }}
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-3">
@@ -131,13 +138,28 @@ function Customers() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button 
-                      onClick={() => navigate(`/lab/management/projects?customerId=${customer.id}`)}
-                      className="text-primary hover:text-primary-dark flex items-center gap-1"
-                    >
-                      View Projects
-                      <ExternalLink className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center justify-end gap-3">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          navigate(`/lab/management/projects?customerId=${customer.id}`)
+                        }}
+                        className="text-primary hover:text-primary-dark flex items-center gap-1"
+                      >
+                        View Projects
+                        <ExternalLink className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedCustomer(customer)
+                          setShowProfileModal(true)
+                        }}
+                        className="text-gray-500 hover:text-gray-700 hover:underline"
+                      >
+                        View Profile
+                      </button>
+                    </div>
                   </td>
                 </motion.tr>
               ))}
@@ -159,6 +181,20 @@ function Customers() {
             loadCustomers()
           }}
           onCancel={() => setShowCreateModal(false)}
+        />
+      </Modal>
+
+      {/* Customer Profile Modal */}
+      <Modal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        title="Customer Profile"
+        size="lg"
+      >
+        <CustomerProfileModal
+          isOpen={showProfileModal}
+          onClose={() => setShowProfileModal(false)}
+          customer={selectedCustomer}
         />
       </Modal>
     </div>

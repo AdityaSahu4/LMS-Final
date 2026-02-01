@@ -2,7 +2,7 @@ import { motion } from 'framer-motion'
 import { FolderKanban, Plus, Search, Filter, ExternalLink } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { projectsService } from '../../../services/labManagementApi'
+import { projectsService, customersService } from '../../../services/labManagementApi'
 import toast from 'react-hot-toast'
 import Modal from '../../../components/labManagement/Modal'
 import CreateProjectForm from '../../../components/labManagement/forms/CreateProjectForm'
@@ -11,12 +11,15 @@ function Projects() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const [projects, setProjects] = useState([])
+  const [customers, setCustomers] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [selectedCustomer, setSelectedCustomer] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
 
   useEffect(() => {
     loadProjects()
+    loadCustomers()
   }, [])
 
   const loadProjects = async () => {
@@ -31,13 +34,23 @@ function Projects() {
     }
   }
 
+  const loadCustomers = async () => {
+    try {
+      const data = await customersService.getAll()
+      setCustomers(data)
+    } catch (error) {
+      console.error('Failed to load customers:', error)
+    }
+  }
+
   const customerId = searchParams.get('customerId')
-  
+
   const filteredProjects = projects.filter(project => {
     const matchesSearch = project.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         project.clientName?.toLowerCase().includes(searchTerm.toLowerCase())
+      project.clientName?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCustomer = !customerId || project.clientId?.toString() === customerId
-    return matchesSearch && matchesCustomer
+    const matchesFilter = !selectedCustomer || project.clientId?.toString() === selectedCustomer
+    return matchesSearch && matchesCustomer && matchesFilter
   })
 
   if (loading) {
@@ -59,7 +72,7 @@ function Projects() {
           <h1 className="text-3xl font-bold text-gray-900">Projects</h1>
           <p className="mt-2 text-gray-600">Manage all your lab projects</p>
         </div>
-        <button 
+        <button
           onClick={() => setShowCreateModal(true)}
           className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors flex items-center gap-2"
         >
@@ -81,10 +94,18 @@ function Projects() {
               className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-transparent"
             />
           </div>
-          <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2">
-            <Filter className="w-5 h-5" />
-            Filter
-          </button>
+          <select
+            value={selectedCustomer}
+            onChange={(e) => setSelectedCustomer(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-primary focus:border-transparent"
+          >
+            <option value="">All Customers</option>
+            {customers.map((customer) => (
+              <option key={customer.id} value={customer.id}>
+                {customer.companyName}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -104,13 +125,12 @@ function Projects() {
                 <FolderKanban className="w-6 h-6 text-primary" />
               </div>
               <span
-                className={`px-3 py-1 text-xs font-medium rounded-full ${
-                  project.status === 'active'
-                    ? 'text-blue-700 bg-blue-50'
-                    : project.status === 'completed'
+                className={`px-3 py-1 text-xs font-medium rounded-full ${project.status === 'active'
+                  ? 'text-blue-700 bg-blue-50'
+                  : project.status === 'completed'
                     ? 'text-green-700 bg-green-50'
                     : 'text-yellow-700 bg-yellow-50'
-                }`}
+                  }`}
               >
                 {project.status}
               </span>

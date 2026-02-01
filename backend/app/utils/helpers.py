@@ -17,15 +17,16 @@ def get_current_timestamp() -> datetime:
     return datetime.utcnow()
 
 
-def sanitize_filename(filename: str) -> str:
+def sanitize_filename(filename: str, prefix: Optional[str] = None) -> str:
     """
     Sanitize filename for safe storage
     
     Args:
         filename: Original filename
+        prefix: Optional prefix (e.g., organization_id) to prepend to filename
     
     Returns:
-        Sanitized filename
+        Sanitized filename with optional prefix
     """
     # Remove special characters and spaces
     import re
@@ -36,7 +37,13 @@ def sanitize_filename(filename: str) -> str:
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     name, ext = filename.rsplit('.', 1) if '.' in filename else (filename, '')
     
-    return f"{name}_{timestamp}.{ext}" if ext else f"{name}_{timestamp}"
+    # Build filename with optional prefix
+    if prefix:
+        base_name = f"{prefix}_{name}_{timestamp}"
+    else:
+        base_name = f"{name}_{timestamp}"
+    
+    return f"{base_name}.{ext}" if ext else base_name
 
 
 def format_file_size(size_bytes: int) -> str:

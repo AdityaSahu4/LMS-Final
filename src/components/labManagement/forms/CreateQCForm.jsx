@@ -19,7 +19,7 @@ export default function CreateQCForm({ onSuccess, onCancel }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
+
     if (!formData.testName || !formData.parameter || !formData.targetValue || !formData.acceptanceRangeMin || !formData.acceptanceRangeMax) {
       toast.error('Please fill in all required fields')
       return
@@ -37,12 +37,31 @@ export default function CreateQCForm({ onSuccess, onCancel }) {
       }
       delete submitData.acceptanceRangeMin
       delete submitData.acceptanceRangeMax
-      
+
       await qcService.create(submitData)
       toast.success('QC check created successfully!')
       onSuccess()
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to create QC check')
+      console.error('Error saving QC check:', error)
+      console.error('Error response:', error.response?.data)
+
+      // Handle FastAPI validation errors
+      let errorMessage = 'Failed to create QC check'
+      if (error.response?.data?.detail) {
+        if (Array.isArray(error.response.data.detail)) {
+          errorMessage = error.response.data.detail
+            .map(err => `${err.loc.join('.')}: ${err.msg}`)
+            .join(', ')
+        } else if (typeof error.response.data.detail === 'string') {
+          errorMessage = error.response.data.detail
+        }
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }

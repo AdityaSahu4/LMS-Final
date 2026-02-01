@@ -431,8 +431,8 @@ class OrganizationService:
         for idx, sop_data in enumerate(data.sops):
             sop = models.SOP(
                 organization_id=organization_id,
-                **sop_data.model_dump(),
-                order_index=idx
+                order_index=idx,
+                **sop_data.model_dump(exclude={'order_index'})
             )
             db.add(sop)
         
@@ -461,8 +461,8 @@ class OrganizationService:
         for idx, format_data in enumerate(data.quality_formats):
             quality_format = models.QualityFormat(
                 organization_id=organization_id,
-                **format_data.model_dump(),
-                order_index=idx
+                order_index=idx,
+                **format_data.model_dump(exclude={'order_index'})
             )
             db.add(quality_format)
         
@@ -474,8 +474,8 @@ class OrganizationService:
         for idx, proc_data in enumerate(data.quality_procedures):
             procedure = models.QualityProcedure(
                 organization_id=organization_id,
-                **proc_data.model_dump(),
-                order_index=idx
+                order_index=idx,
+                **proc_data.model_dump(exclude={'order_index'})
             )
             db.add(procedure)
         
@@ -501,8 +501,7 @@ class OrganizationService:
             organization.lab_state,
             organization.lab_district,
             organization.lab_city,
-            organization.lab_pin_code,
-            organization.lab_proof_of_address
+            organization.lab_pin_code
         ])
         steps.append(schemas.ChecklistItem(
             step_id=1,
@@ -512,8 +511,98 @@ class OrganizationService:
             missing_fields=[]
         ))
         
-        # Add more step validations...
-        # (Simplified for brevity)
+        # Step 2: Registered Office & Top Management
+        step2_complete = bool(organization.registered_office) and len(organization.top_management) > 0
+        steps.append(schemas.ChecklistItem(
+            step_id=2,
+            step_name="Registered Office",
+            is_completed=step2_complete,
+            required_fields=["registered_office", "top_management"],
+            missing_fields=[]
+        ))
+        
+        # Step 3: Parent Organization & Bank Details
+        # These are optional, so we mark as complete by default
+        step3_complete = True
+        steps.append(schemas.ChecklistItem(
+            step_id=3,
+            step_name="Parent Organization",
+            is_completed=step3_complete,
+            required_fields=[],
+            missing_fields=[]
+        ))
+        
+        # Step 4: Working Schedule
+        step4_complete = bool(organization.working_schedule) and len(organization.shift_timings) > 0
+        steps.append(schemas.ChecklistItem(
+            step_id=4,
+            step_name="Working Days & Type",
+            is_completed=step4_complete,
+            required_fields=["working_schedule", "shift_timings"],
+            missing_fields=[]
+        ))
+        
+        # Step 5: Compliance Documents
+        # Optional, mark as complete
+        step5_complete = True
+        steps.append(schemas.ChecklistItem(
+            step_id=5,
+            step_name="Compliance Documents",
+            is_completed=step5_complete,
+            required_fields=[],
+            missing_fields=[]
+        ))
+        
+        # Step 6: Policy Documents
+        step6_complete = bool(organization.policy_documents)
+        steps.append(schemas.ChecklistItem(
+            step_id=6,
+            step_name="Undertakings & Policies",
+            is_completed=step6_complete,
+            required_fields=["policy_documents"],
+            missing_fields=[]
+        ))
+        
+        # Step 7: Infrastructure
+        step7_complete = bool(organization.infrastructure)
+        steps.append(schemas.ChecklistItem(
+            step_id=7,
+            step_name="Power & Water Supply",
+            is_completed=step7_complete,
+            required_fields=["infrastructure"],
+            missing_fields=[]
+        ))
+        
+        # Step 8: Accreditation & Other Details
+        step8_complete = bool(organization.other_details)
+        steps.append(schemas.ChecklistItem(
+            step_id=8,
+            step_name="Accreditation & Other",
+            is_completed=step8_complete,
+            required_fields=["other_details"],
+            missing_fields=[]
+        ))
+        
+        # Step 9: Quality Manual & SOPs
+        step9_complete = bool(organization.quality_manual)
+        steps.append(schemas.ChecklistItem(
+            step_id=9,
+            step_name="Quality Manual & SOPs",
+            is_completed=step9_complete,
+            required_fields=["quality_manual"],
+            missing_fields=[]
+        ))
+        
+        # Step 10: Quality Formats & Procedures
+        # Optional, mark as complete
+        step10_complete = True
+        steps.append(schemas.ChecklistItem(
+            step_id=10,
+            step_name="Quality Formats & Procedures",
+            is_completed=step10_complete,
+            required_fields=[],
+            missing_fields=[]
+        ))
         
         completed_steps = sum(1 for step in steps if step.is_completed)
         overall_completion = (completed_steps / len(steps)) * 100 if steps else 0

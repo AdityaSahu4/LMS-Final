@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { BarChart3, AlertCircle, CheckCircle, TrendingUp, Package, Calendar, Wrench } from 'lucide-react'
-import { inventoryReportsService, instrumentsService, consumablesService, calibrationsService } from '../../../services/labManagementApi'
+import { instrumentsService, consumablesService, calibrationsService, inventoryTransactionsService } from '../../../services/labManagementApi'
 import toast from 'react-hot-toast'
 import Card from '../../../components/labManagement/Card'
 import Badge from '../../../components/labManagement/Badge'
@@ -19,13 +19,49 @@ function InventoryReports() {
   const loadReports = async () => {
     try {
       setLoading(true)
-      const [summaryData, complianceData] = await Promise.all([
-        inventoryReportsService.getSummary(),
-        inventoryReportsService.getCalibrationCompliance()
+
+      // Fetch all data in parallel
+      const [instruments, calibrations, consumables] = await Promise.all([
+        instrumentsService.getAll(),
+        calibrationsService.getAll(),
+        consumablesService.getAll()
       ])
-      setSummary(summaryData)
-      setCalibrationCompliance(complianceData)
+
+      // Calculate summary statistics
+      const activeInstruments = instruments.filter(i => i.status === 'Active').length
+      const instrumentsUnderMaintenance = instruments.filter(i => i.status === 'Under Maintenance').length
+      const lowStockItems = consumables.filter(c => c.status === 'Low Stock' || c.status === 'Out of Stock').length
+      const expiringItems = consumables.filter(c => c.status === 'Expiring Soon' || c.status === 'Expired').length
+      const upcomingCalibrations = calibrations.filter(c => c.status === 'Due Soon').length
+      const overdueCalibrations = calibrations.filter(c => c.status === 'Overdue').length
+      const instrumentUtilization = instruments.length > 0 ? (activeInstruments / instruments.length) * 100 : 0
+
+      setSummary({
+        totalInstruments: instruments.length,
+        activeInstruments,
+        instrumentsUnderMaintenance,
+        totalConsumables: consumables.length,
+        lowStockItems,
+        expiringItems,
+        upcomingCalibrations,
+        overdueCalibrations,
+        instrumentUtilization
+      })
+
+      // Calculate calibration compliance
+      const calibrated = calibrations.filter(c => c.status === 'Valid').length
+      const dueSoon = calibrations.filter(c => c.status === 'Due Soon').length
+      const overdue = calibrations.filter(c => c.status === 'Overdue').length
+      const complianceRate = calibrations.length > 0 ? (calibrated / calibrations.length) * 100 : 0
+
+      setCalibrationCompliance({
+        calibrated,
+        dueSoon,
+        overdue,
+        complianceRate
+      })
     } catch (error) {
+      console.error('Error loading reports:', error)
       toast.error('Failed to load reports')
     } finally {
       setLoading(false)
@@ -49,7 +85,7 @@ function InventoryReports() {
     { name: 'Out of Service', value: summary.totalInstruments - summary.activeInstruments - summary.instrumentsUnderMaintenance, color: '#ef4444' }
   ] : []
 
-  const complianceData = calibrationCompliance ? [
+  const calibrationComplianceData = calibrationCompliance ? [
     { name: 'Calibrated', value: calibrationCompliance.calibrated, color: '#10b981' },
     { name: 'Due Soon', value: calibrationCompliance.dueSoon, color: '#f59e0b' },
     { name: 'Overdue', value: calibrationCompliance.overdue, color: '#ef4444' }
@@ -86,6 +122,10 @@ function InventoryReports() {
               <Wrench className="w-6 h-6 text-blue-600" />
             </div>
           </div>
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-sm text-gray-500">Total: {summary?.totalInstruments || 0}</span>
+            <span className="text-sm text-green-600 font-medium">Active: {summary?.activeInstruments || 0}</span>
+          </div>
         </Card>
         <Card>
           <div className="flex items-center justify-between">
@@ -97,6 +137,10 @@ function InventoryReports() {
               <Package className="w-6 h-6 text-purple-600" />
             </div>
           </div>
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-sm text-gray-500">Total: {summary?.totalConsumables || 0}</span>
+            <span className="text-sm text-red-600 font-medium">Low Stock: {summary?.lowStockItems || 0}</span>
+          </div>
         </Card>
         <Card>
           <div className="flex items-center justify-between">
@@ -107,6 +151,10 @@ function InventoryReports() {
             <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
               <AlertCircle className="w-6 h-6 text-orange-600" />
             </div>
+          </div>
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-sm text-gray-500">Compliance: {calibrationCompliance?.complianceRate?.toFixed(1) || 0}%</span>
+            <span className="text-sm text-purple-600 font-medium">Utilization: {summary?.instrumentUtilization?.toFixed(1) || 0}%</span>
           </div>
         </Card>
         <Card>
@@ -152,7 +200,7 @@ function InventoryReports() {
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
-                data={complianceData}
+                data={calibrationComplianceData}
                 cx="50%"
                 cy="50%"
                 labelLine={false}
@@ -161,7 +209,7 @@ function InventoryReports() {
                 fill="#8884d8"
                 dataKey="value"
               >
-                {complianceData.map((entry, index) => (
+                {calibrationComplianceData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>

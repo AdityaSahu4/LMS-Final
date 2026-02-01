@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, FlaskConical, Clock, ExternalLink, AlertCircle } from 'lucide-react'
+import { Plus, Search, FlaskConical, Clock, ExternalLink, AlertCircle, Eye } from 'lucide-react'
 import { testPlansService } from '../../../services/labManagementApi'
 import toast from 'react-hot-toast'
 import Card from '../../../components/labManagement/Card'
@@ -10,6 +10,7 @@ import Badge from '../../../components/labManagement/Badge'
 import Input from '../../../components/labManagement/Input'
 import Modal from '../../../components/labManagement/Modal'
 import CreateTestPlanForm from '../../../components/labManagement/forms/CreateTestPlanForm'
+import SampleTestPlanModal from '../../../components/labManagement/modals/SampleTestPlanModal'
 
 function TestPlans() {
   const [testPlans, setTestPlans] = useState([])
@@ -19,6 +20,8 @@ function TestPlans() {
   const [selectedType, setSelectedType] = useState('all')
   const [selectedStatus, setSelectedStatus] = useState('all')
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showSampleModal, setShowSampleModal] = useState(false)
+  const [selectedPlan, setSelectedPlan] = useState(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -98,20 +101,20 @@ function TestPlans() {
   }
 
   const projectId = new URLSearchParams(window.location.search).get('projectId')
-  
+
   // Ensure we always have valid data before filtering
   const safeTestPlans = Array.isArray(testPlans) ? testPlans : []
-  
+
   const filteredPlans = safeTestPlans.filter(plan => {
     if (!plan) return false
     const planName = (plan.name || '').toLowerCase()
     const projectName = (plan.projectName || '').toLowerCase()
     const description = (plan.description || '').toLowerCase()
     const searchLower = (searchTerm || '').toLowerCase()
-    
+
     const matchesSearch = !searchLower || planName.includes(searchLower) ||
-                         projectName.includes(searchLower) ||
-                         description.includes(searchLower)
+      projectName.includes(searchLower) ||
+      description.includes(searchLower)
     const matchesType = selectedType === 'all' || (plan.testType || '') === selectedType
     const matchesStatus = selectedStatus === 'all' || (plan.status || '') === selectedStatus
     const matchesProject = !projectId || (plan.projectId?.toString() || '') === projectId
@@ -221,7 +224,7 @@ function TestPlans() {
             </div>
             <p className="text-gray-500 font-medium">No test plans found</p>
             <p className="text-sm text-gray-400 mt-1">
-              {!safeTestPlans || safeTestPlans.length === 0 
+              {!safeTestPlans || safeTestPlans.length === 0
                 ? 'Create your first test plan to get started'
                 : 'Try adjusting your filters'}
             </p>
@@ -275,33 +278,33 @@ function TestPlans() {
                       {plan.status || 'Draft'}
                     </Badge>
                   </div>
-                  
+
                   <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2">
                     {plan.name || 'Unnamed Test Plan'}
                   </h3>
-                  
+
                   <p className="text-sm text-gray-600 mb-4 line-clamp-2">
                     {plan.description || 'No description'}
                   </p>
-                  
+
                   <div className="mt-auto space-y-2">
                     <div className="flex items-center text-sm text-gray-500">
                       <span className="font-medium">Project:</span>
                       <span className="ml-2">{plan.projectName || 'N/A'}</span>
                     </div>
-                    
+
                     {plan.assignedEngineerName && (
                       <div className="flex items-center text-sm text-gray-500">
                         <span className="font-medium">Engineer:</span>
                         <span className="ml-2">{plan.assignedEngineerName}</span>
                       </div>
                     )}
-                    
+
                     <div className="flex items-center text-xs text-gray-400 mt-3 pt-3 border-t border-gray-200">
                       <Clock className="w-4 h-4 mr-1" />
                       {plan.createdAt ? new Date(plan.createdAt).toLocaleDateString() : 'N/A'}
                     </div>
-                    
+
                     <div className="mt-3 pt-3 border-t border-gray-200">
                       <button
                         onClick={(e) => {
@@ -313,6 +316,16 @@ function TestPlans() {
                         className="text-xs text-primary hover:underline w-full text-left"
                       >
                         View Executions →
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedPlan(plan)
+                          setShowSampleModal(true)
+                        }}
+                        className="text-xs text-gray-500 hover:text-gray-700 hover:underline w-full text-left mt-2 flex items-center gap-1"
+                      >
+                        <Eye className="w-3 h-3" /> View Sample Plan
                       </button>
                     </div>
                   </div>
@@ -336,6 +349,20 @@ function TestPlans() {
             loadTestPlans()
           }}
           onCancel={() => setShowCreateModal(false)}
+        />
+      </Modal>
+
+      {/* Sample Plan Modal */}
+      <Modal
+        isOpen={showSampleModal}
+        onClose={() => setShowSampleModal(false)}
+        title="Test Plan Details"
+        size="lg"
+      >
+        <SampleTestPlanModal
+          isOpen={showSampleModal}
+          onClose={() => setShowSampleModal(false)}
+          testPlan={selectedPlan}
         />
       </Modal>
     </div>

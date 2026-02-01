@@ -1,9 +1,17 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, FolderOpen, FileText, Download, Eye } from 'lucide-react'
+import {
+  Plus,
+  Search,
+  FolderOpen,
+  FileText,
+  Download,
+  Eye,
+} from 'lucide-react'
 import { documentsService } from '../../../services/labManagementApi'
 import toast from 'react-hot-toast'
+
 import Card from '../../../components/labManagement/Card'
 import Button from '../../../components/labManagement/Button'
 import Badge from '../../../components/labManagement/Badge'
@@ -17,31 +25,82 @@ function Documents() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedType, setSelectedType] = useState('all')
   const [showUploadModal, setShowUploadModal] = useState(false)
+
   const navigate = useNavigate()
 
   useEffect(() => {
     loadDocuments()
   }, [])
 
+  // ========================
+  // Load documents
+  // ========================
   const loadDocuments = async () => {
     try {
       setLoading(true)
       const data = await documentsService.getAll()
       setDocuments(data)
     } catch (error) {
+      console.error(error)
       toast.error('Failed to load documents')
     } finally {
       setLoading(false)
     }
   }
 
-  const filteredDocuments = documents.filter(doc => {
-    const matchesSearch = doc.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         doc.description?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesType = selectedType === 'all' || doc.type === selectedType
+  // ========================
+  // View document
+  // ========================
+  const handleView = async (doc) => {
+    try {
+      const blob = await documentsService.download(doc.id)
+      const url = window.URL.createObjectURL(blob)
+      window.open(url, '_blank')
+    } catch (error) {
+      console.error(error)
+      toast.error('Failed to view document')
+    }
+  }
+
+  // ========================
+  // Download document
+  // ========================
+  const handleDownload = async (doc) => {
+    try {
+      const blob = await documentsService.download(doc.id)
+      const url = window.URL.createObjectURL(blob)
+
+      const a = document.createElement('a')
+      a.href = url
+      a.download = doc.name || `document-${doc.id}`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error(error)
+      toast.error('Failed to download document')
+    }
+  }
+
+  // ========================
+  // Filters
+  // ========================
+  const filteredDocuments = documents.filter((doc) => {
+    const matchesSearch =
+      doc.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      doc.description?.toLowerCase().includes(searchTerm.toLowerCase())
+
+    const matchesType =
+      selectedType === 'all' || doc.type === selectedType
+
     return matchesSearch && matchesType
   })
 
+  // ========================
+  // Loading state
+  // ========================
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -68,8 +127,11 @@ function Documents() {
             </div>
             Documents
           </h1>
-          <p className="text-gray-600 mt-1">Document management and repository</p>
+          <p className="text-gray-600 mt-1">
+            Document management and repository
+          </p>
         </div>
+
         <Button
           onClick={() => setShowUploadModal(true)}
           icon={<Plus className="w-5 h-5" />}
@@ -87,6 +149,7 @@ function Documents() {
             onChange={(e) => setSearchTerm(e.target.value)}
             icon={<Search className="w-5 h-5" />}
           />
+
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
@@ -108,8 +171,12 @@ function Documents() {
             <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
               <FolderOpen className="w-8 h-8 text-gray-400" />
             </div>
-            <p className="text-gray-500 font-medium">No documents found</p>
-            <p className="text-sm text-gray-400 mt-1">Upload your first document to get started</p>
+            <p className="text-gray-500 font-medium">
+              No documents found
+            </p>
+            <p className="text-sm text-gray-400 mt-1">
+              Upload your first document to get started
+            </p>
           </div>
         </Card>
       ) : (
@@ -119,50 +186,52 @@ function Documents() {
               key={doc.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
+              transition={{ delay: index * 0.05 }}
               whileHover={{ y: -4 }}
             >
               <Card
                 hover
                 className="cursor-pointer h-full flex flex-col"
-                onClick={() => navigate(`/lab/management/documents/${doc.id}`)}
+                onClick={() =>
+                  navigate(`/lab/management/documents/${doc.id}`)
+                }
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center shadow-lg">
                     <FileText className="w-6 h-6 text-white" />
                   </div>
+
                   {doc.type && (
-                    <Badge variant="info">
-                      {doc.type}
-                    </Badge>
+                    <Badge variant="info">{doc.type}</Badge>
                   )}
                 </div>
-                
+
                 <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2">
                   {doc.name}
                 </h3>
-                
+
                 {doc.description && (
                   <p className="text-sm text-gray-600 mb-4 line-clamp-2">
                     {doc.description}
                   </p>
                 )}
-                
+
                 <div className="mt-auto flex items-center gap-2 pt-4 border-t border-gray-200">
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      toast.info('View document')
+                      handleView(doc)
                     }}
                     className="flex-1 px-3 py-2 text-sm text-primary hover:bg-primary/10 rounded-lg transition-colors flex items-center justify-center gap-2"
                   >
                     <Eye className="w-4 h-4" />
                     View
                   </button>
+
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      toast.info('Download document')
+                      handleDownload(doc)
                     }}
                     className="flex-1 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center gap-2"
                   >

@@ -1,18 +1,108 @@
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import { 
-  Package, 
-  Wrench, 
-  Calendar, 
-  ShoppingCart, 
+import {
+  Package,
+  Wrench,
+  Calendar,
+  ShoppingCart,
   BarChart3,
   ChevronRight
 } from 'lucide-react'
 import Card from '../../../components/labManagement/Card'
-import Button from '../../../components/labManagement/Button'
+import toast from 'react-hot-toast'
+import { instrumentsService, calibrationsService, consumablesService, inventoryTransactionsService } from '../../../services/labManagementApi'
 
 function Inventory() {
   const navigate = useNavigate()
+  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState({
+    instruments: { total: 0, active: 0 },
+    calibrations: { total: 0, dueSoon: 0 },
+    consumables: { total: 0, lowStock: 0 },
+    transactions: { today: 0, thisMonth: 0 },
+    compliance: 0,
+    utilization: 0
+  })
+
+  useEffect(() => {
+    loadStats()
+  }, [])
+
+  const loadStats = async () => {
+    try {
+      setLoading(true)
+
+      // Fetch all data in parallel
+      const [instruments, calibrations, consumables, transactions] = await Promise.all([
+        instrumentsService.getAll(),
+        calibrationsService.getAll(),
+        consumablesService.getAll(),
+        inventoryTransactionsService.getAll()
+      ])
+
+      // Calculate instrument stats
+      const activeInstruments = instruments.filter(i => i.status === 'Active').length
+
+      // Calculate calibration stats
+      const dueSoonCalibrations = calibrations.filter(c =>
+        c.status === 'Due Soon' || c.status === 'Overdue'
+      ).length
+
+      // Calculate consumable stats
+      const lowStockConsumables = consumables.filter(c =>
+        c.status === 'Low Stock' || c.status === 'Out of Stock'
+      ).length
+
+      // Calculate transaction stats
+      const today = new Date().toISOString().split('T')[0]
+      const thisMonth = new Date().toISOString().slice(0, 7) // YYYY-MM
+
+      const todayTransactions = transactions.filter(t =>
+        t.date && t.date.startsWith(today)
+      ).length
+
+      const thisMonthTransactions = transactions.filter(t =>
+        t.date && t.date.startsWith(thisMonth)
+      ).length
+
+      // Calculate compliance (calibrations that are valid)
+      const validCalibrations = calibrations.filter(c => c.status === 'Valid').length
+      const compliancePercentage = calibrations.length > 0
+        ? ((validCalibrations / calibrations.length) * 100).toFixed(1)
+        : 0
+
+      // Calculate utilization (active instruments / total instruments)
+      const utilizationPercentage = instruments.length > 0
+        ? ((activeInstruments / instruments.length) * 100).toFixed(1)
+        : 0
+
+      setStats({
+        instruments: { total: instruments.length, active: activeInstruments },
+        calibrations: { total: calibrations.length, dueSoon: dueSoonCalibrations },
+        consumables: { total: consumables.length, lowStock: lowStockConsumables },
+        transactions: { today: todayTransactions, thisMonth: thisMonthTransactions },
+        compliance: compliancePercentage,
+        utilization: utilizationPercentage
+      })
+    } catch (error) {
+      console.error('Error loading inventory stats:', error)
+      toast.error('Failed to load inventory statistics')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
+          <p className="mt-4 text-gray-600">Loading inventory...</p>
+        </div>
+      </div>
+    )
+  }
 
   const sections = [
     {
@@ -21,8 +111,7 @@ function Inventory() {
       description: 'Manage lab instruments, track maintenance, and warranty information',
       icon: Wrench,
       color: 'from-blue-500 to-blue-600',
-      route: '/lab/management/inventory/instruments',
-      stats: { total: 12, active: 10, maintenance: 2 }
+      route: '/lab/management/inventory/instruments'
     },
     {
       id: 'calibration',
@@ -30,8 +119,7 @@ function Inventory() {
       description: 'Track calibration schedules, certificates, and compliance',
       icon: Calendar,
       color: 'from-green-500 to-green-600',
-      route: '/lab/management/inventory/calibration',
-      stats: { total: 12, valid: 10, dueSoon: 2 }
+      route: '/lab/management/inventory/calibration'
     },
     {
       id: 'consumables',
@@ -39,8 +127,7 @@ function Inventory() {
       description: 'Manage consumables, track stock levels, and expiry dates',
       icon: Package,
       color: 'from-purple-500 to-purple-600',
-      route: '/lab/management/inventory/consumables',
-      stats: { total: 45, lowStock: 3, expiring: 2 }
+      route: '/lab/management/inventory/consumables'
     },
     {
       id: 'transactions',
@@ -48,8 +135,7 @@ function Inventory() {
       description: 'Log stock usage, additions, and wastage with audit trail',
       icon: ShoppingCart,
       color: 'from-orange-500 to-orange-600',
-      route: '/lab/management/inventory/transactions',
-      stats: { today: 5, thisWeek: 23, thisMonth: 89 }
+      route: '/lab/management/inventory/transactions'
     },
     {
       id: 'reports',
@@ -57,8 +143,7 @@ function Inventory() {
       description: 'View inventory summaries, compliance reports, and analytics',
       icon: BarChart3,
       color: 'from-indigo-500 to-indigo-600',
-      route: '/lab/management/inventory/reports',
-      stats: { compliance: 83.3, utilization: 75.2 }
+      route: '/lab/management/inventory/reports'
     },
   ]
 
@@ -104,45 +189,45 @@ function Inventory() {
                   </div>
                   <ChevronRight className="w-5 h-5 text-gray-400" />
                 </div>
-                
+
                 <h3 className="text-xl font-bold text-gray-900 mb-2">
                   {section.title}
                 </h3>
-                
+
                 <p className="text-sm text-gray-600 mb-4 flex-1">
                   {section.description}
                 </p>
-                
+
                 <div className="mt-auto pt-4 border-t border-gray-200">
                   <div className="flex items-center justify-between text-sm">
                     {section.id === 'instruments' && (
                       <>
-                        <span className="text-gray-500">Total: <span className="font-semibold text-gray-900">{section.stats.total}</span></span>
-                        <span className="text-green-600">Active: {section.stats.active}</span>
+                        <span className="text-gray-500">Total: <span className="font-semibold text-gray-900">{stats.instruments.total}</span></span>
+                        <span className="text-green-600">Active: {stats.instruments.active}</span>
                       </>
                     )}
                     {section.id === 'calibration' && (
                       <>
-                        <span className="text-gray-500">Total: <span className="font-semibold text-gray-900">{section.stats.total}</span></span>
-                        <span className="text-yellow-600">Due Soon: {section.stats.dueSoon}</span>
+                        <span className="text-gray-500">Total: <span className="font-semibold text-gray-900">{stats.calibrations.total}</span></span>
+                        <span className="text-orange-600">Due Soon: {stats.calibrations.dueSoon}</span>
                       </>
                     )}
                     {section.id === 'consumables' && (
                       <>
-                        <span className="text-gray-500">Total: <span className="font-semibold text-gray-900">{section.stats.total}</span></span>
-                        <span className="text-orange-600">Low Stock: {section.stats.lowStock}</span>
+                        <span className="text-gray-500">Total: <span className="font-semibold text-gray-900">{stats.consumables.total}</span></span>
+                        <span className="text-red-600">Low Stock: {stats.consumables.lowStock}</span>
                       </>
                     )}
                     {section.id === 'transactions' && (
                       <>
-                        <span className="text-gray-500">Today: <span className="font-semibold text-gray-900">{section.stats.today}</span></span>
-                        <span className="text-blue-600">This Month: {section.stats.thisMonth}</span>
+                        <span className="text-gray-500">Today: <span className="font-semibold text-gray-900">{stats.transactions.today}</span></span>
+                        <span className="text-blue-600">This Month: {stats.transactions.thisMonth}</span>
                       </>
                     )}
                     {section.id === 'reports' && (
                       <>
-                        <span className="text-gray-500">Compliance: <span className="font-semibold text-gray-900">{section.stats.compliance}%</span></span>
-                        <span className="text-green-600">Utilization: {section.stats.utilization}%</span>
+                        <span className="text-gray-500">Compliance: <span className="font-semibold text-gray-900">{stats.compliance}%</span></span>
+                        <span className="text-green-600">Utilization: {stats.utilization}%</span>
                       </>
                     )}
                   </div>

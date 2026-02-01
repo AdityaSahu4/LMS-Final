@@ -6,8 +6,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from typing import Generator
+import logging
 
 from app.core.config import settings
+
+# Suppress verbose SQLAlchemy logs (only show warnings and errors)
+logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
 
 # Create database engine
 engine = create_engine(
@@ -15,7 +19,7 @@ engine = create_engine(
     pool_size=settings.DB_POOL_SIZE,
     max_overflow=settings.DB_MAX_OVERFLOW,
     pool_pre_ping=True,  # Verify connections before using
-    echo=settings.DEBUG  # Log SQL queries in debug mode
+    echo=False  # Disable SQL query logging completely
 )
 
 # Create session factory

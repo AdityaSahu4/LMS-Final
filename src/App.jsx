@@ -44,6 +44,7 @@ const QAAuditCompliance = lazy(() => import('./pages/lab/management/QAAuditCompl
 const QANCCAPA = lazy(() => import('./pages/lab/management/QANCCAPA'))
 const QADocumentControl = lazy(() => import('./pages/lab/management/QADocumentControl'))
 const QAAReports = lazy(() => import('./pages/lab/management/QAAReports'))
+const Payment = lazy(() => import('./pages/lab/management/Payment'))
 
 // Loading component
 const PageLoader = () => (
@@ -84,7 +85,7 @@ function AnimatedRoutes() {
       <Routes location={location} key={location.pathname}>
         {/* Redirect root to dashboard */}
         <Route path="/" element={<Navigate to="/lab/management/dashboard" replace />} />
-        
+
         {/* Lab Management System */}
         <Route path="/lab/management" element={<LabManagementLayout />}>
           <Route path="dashboard" element={<Suspense fallback={<PageLoader />}><LabManagementDashboard /></Suspense>} />
@@ -113,7 +114,7 @@ function AnimatedRoutes() {
           <Route path="certifications" element={<Suspense fallback={<PageLoader />}><LabManagementCertifications /></Suspense>} />
           <Route path="calendar" element={<Suspense fallback={<PageLoader />}><LabManagementCalendar /></Suspense>} />
           <Route path="lab-recommendations" element={<Suspense fallback={<PageLoader />}><LabManagementRecommendations /></Suspense>} />
-          
+
           {/* Inventory Management */}
           <Route path="inventory" element={<Suspense fallback={<PageLoader />}><Inventory /></Suspense>} />
           <Route path="inventory/instruments" element={<Suspense fallback={<PageLoader />}><InventoryInstruments /></Suspense>} />
@@ -128,8 +129,9 @@ function AnimatedRoutes() {
           <Route path="qa/nc-capa" element={<Suspense fallback={<PageLoader />}><QANCCAPA /></Suspense>} />
           <Route path="qa/documents" element={<Suspense fallback={<PageLoader />}><QADocumentControl /></Suspense>} />
           <Route path="qa/reports" element={<Suspense fallback={<PageLoader />}><QAAReports /></Suspense>} />
+          <Route path="payment" element={<Suspense fallback={<PageLoader />}><Payment /></Suspense>} />
         </Route>
-        
+
         {/* Catch all - redirect to dashboard */}
         <Route path="*" element={<Navigate to="/lab/management/dashboard" replace />} />
       </Routes>
@@ -191,8 +193,13 @@ function AppContent() {
       <main className="flex-grow">
         <AnimatedRoutes />
       </main>
-      <Toaster position="top-right" />
-      
+      <Toaster
+        position="top-right"
+        containerStyle={{
+          zIndex: 99999,
+        }}
+      />
+
       {/* Chatbot Widget - Plugged in */}
       <ChatbotWidget
         apiUrl={chatbotConfig.apiUrl}

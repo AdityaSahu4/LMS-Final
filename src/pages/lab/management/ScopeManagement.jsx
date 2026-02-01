@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { 
+import {
   Target,
   TestTube,
   Package,
@@ -21,6 +21,7 @@ import {
 import Card from '../../../components/labManagement/Card'
 import toast from 'react-hot-toast'
 import { useLabData } from '../../../contexts/LabDataContext'
+import scopeManagementService from '../../../services/scopeManagementService'
 
 const scopeSections = [
   { id: 'add-scope', name: 'Add Scope', icon: Target },
@@ -50,7 +51,7 @@ const maintenanceTypeOptions = ['Internal', 'External', 'Both']
 
 export default function ScopeManagement() {
   const { scopeData, updateScopeData } = useLabData()
-  
+
   const [activeSection, setActiveSection] = useState('add-scope')
   const [showILCFirst, setShowILCFirst] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -120,7 +121,43 @@ export default function ScopeManagement() {
   const [testingCharges, setTestingCharges] = useState(scopeData.testingCharges)
   const [completeTestingCharge, setCompleteTestingCharge] = useState(scopeData.completeTestingCharge)
 
-  // Sync state to context whenever any data changes
+
+  // Fetch data on mount
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  const fetchData = async () => {
+    try {
+      const data = await scopeManagementService.getAllData()
+
+      // Global Settings
+      if (data.global_settings) {
+        setInternalAuditFrequency(data.global_settings.internal_audit_frequency || '')
+        setLastAuditDate(data.global_settings.last_audit_date || '')
+        setManagementReviewFrequency(data.global_settings.management_review_frequency || '')
+        setLastReviewDate(data.global_settings.last_review_date || '')
+        setCompleteTestingCharge(data.global_settings.complete_testing_charge || '')
+      }
+
+      // Arrays
+      if (data.ilc_programmes) setIlcProgrammes(data.ilc_programmes)
+      if (data.scopes) setScopes(data.scopes)
+      if (data.equipments) setEquipments(data.equipments)
+      if (data.scope_tests) setScopeTests(data.scope_tests)
+      if (data.facilities_available) setFacilitiesAvailable(data.facilities_available)
+      if (data.facilities_not_available) setFacilitiesNotAvailable(data.facilities_not_available)
+      if (data.reference_materials) setReferenceMaterials(data.reference_materials)
+      if (data.exclusions) setExclusions(data.exclusions)
+      if (data.testing_charges) setTestingCharges(data.testing_charges)
+
+    } catch (error) {
+      console.error("Error fetching scope data:", error)
+      toast.error("Failed to load scope data")
+    }
+  }
+
+  // Update Context (Optional: reduce frequency or keep as is if context is needed elsewhere)
   useEffect(() => {
     updateScopeData({
       ilcProgrammes,
@@ -165,15 +202,29 @@ export default function ScopeManagement() {
   // ILC/PT Functions
   const addILCProgramme = () => {
     setIlcProgrammes([...ilcProgrammes, {
-      id: Date.now(),
+      id: `temp-${Date.now()}`, // Temp ID
       programme: '',
       parameter: '',
       score: ''
     }])
   }
 
-  const removeILCProgramme = (id) => {
-    setIlcProgrammes(ilcProgrammes.filter(item => item.id !== id))
+  const removeILCProgramme = async (id) => {
+    // If it's a temp ID, just remove from state
+    if (typeof id === 'string' && id.startsWith('temp-')) {
+      setIlcProgrammes(ilcProgrammes.filter(item => item.id !== id))
+      return
+    }
+
+    // If it's a DB ID, delete from API
+    try {
+      await scopeManagementService.deleteILC(id)
+      setIlcProgrammes(ilcProgrammes.filter(item => item.id !== id))
+      toast.success('Programme removed')
+    } catch (error) {
+      console.error("Error deleting ILC:", error)
+      toast.error("Failed to delete programme")
+    }
   }
 
   const updateILCProgramme = (id, field, value) => {
@@ -182,93 +233,190 @@ export default function ScopeManagement() {
     ))
   }
 
-  const handleILCSubmit = () => {
+  const handleILCSubmit = async () => {
     if (!internalAuditFrequency || !lastAuditDate || !managementReviewFrequency || !lastReviewDate) {
       toast.error('Please fill in all required audit and review details')
       return
     }
-    toast.success('ILC/PT information saved successfully!')
-    setShowILCFirst(false)
+
+    try {
+      // Save Global Settings
+      await scopeManagementService.updateSettings({
+        internal_audit_frequency: internalAuditFrequency,
+        last_audit_date: lastAuditDate,
+        management_review_frequency: managementReviewFrequency,
+        last_review_date: lastReviewDate
+      })
+
+      // Save ILC Programmes
+      const savedProgrammes = await Promise.all(ilcProgrammes.map(async (item) => {
+        if (typeof item.id === 'string' && item.id.startsWith('temp-')) {
+          // Create new
+          const { id, ...payload } = item
+          return await scopeManagementService.createILC(payload)
+        } else {
+          // Update existing
+          const { id, created_at, ...payload } = item
+          return await scopeManagementService.updateILC(id, payload)
+        }
+      }))
+
+      setIlcProgrammes(savedProgrammes)
+
+      toast.success('ILC/PT information saved successfully!')
+      setShowILCFirst(false)
+    } catch (error) {
+      console.error("Error saving ILC data:", error)
+      toast.error("Failed to save data")
+    }
   }
 
   // Scope Functions
-  const handleAddScope = () => {
+  const handleAddScope = async () => {
     if (!currentScope.indianStandard || !currentScope.fieldOfTesting) {
       toast.error('Please fill in Indian Standard and Field of Testing')
       return
     }
-    setScopes([...scopes, { ...currentScope, id: Date.now() }])
-    setCurrentScope({
-      indianStandard: '',
-      fieldOfTesting: '',
-      optimalTestingTime: '',
-      testingCapacityPerMonth: '',
-      productManual: null
-    })
-    setShowScopeForm(false)
-    toast.success('Scope added successfully!')
+
+    try {
+      const newScope = await scopeManagementService.createScope({
+        indian_standard: currentScope.indianStandard,
+        field_of_testing: currentScope.fieldOfTesting,
+        optimal_testing_time: currentScope.optimalTestingTime,
+        testing_capacity_per_month: currentScope.testingCapacityPerMonth,
+        product_manual: currentScope.productManual
+      })
+
+      setScopes([...scopes, newScope])
+      setCurrentScope({
+        indianStandard: '',
+        fieldOfTesting: '',
+        optimalTestingTime: '',
+        testingCapacityPerMonth: '',
+        productManual: null
+      })
+      setShowScopeForm(false)
+      toast.success('Scope added successfully!')
+    } catch (error) {
+      console.error("Error adding scope:", error)
+      toast.error("Failed to add scope")
+    }
   }
 
-  const removeScope = (id) => {
-    setScopes(scopes.filter(s => s.id !== id))
-    toast.success('Scope removed')
+  const removeScope = async (id) => {
+    try {
+      await scopeManagementService.deleteScope(id)
+      setScopes(scopes.filter(s => s.id !== id))
+      toast.success('Scope removed')
+    } catch (error) {
+      console.error("Error removing scope:", error)
+      toast.error("Failed to remove scope")
+    }
   }
 
   // Equipment Functions
-  const handleAddEquipment = () => {
+  const handleAddEquipment = async () => {
     if (!currentEquipment.name || !currentEquipment.identificationNumber) {
       toast.error('Please fill in equipment name and identification number')
       return
     }
-    setEquipments([...equipments, { ...currentEquipment, id: Date.now() }])
-    setCurrentEquipment({
-      name: '',
-      model: '',
-      identificationNumber: '',
-      range: '',
-      leastCount: '',
-      calibrationDate: '',
-      validityDate: '',
-      traceability: '',
-      maintenanceType: '',
-      amcSchedule: null
-    })
-    setShowEquipmentForm(false)
-    toast.success('Equipment added successfully!')
+
+    try {
+      const newEquipment = await scopeManagementService.createEquipment({
+        name: currentEquipment.name,
+        model: currentEquipment.model,
+        identification_number: currentEquipment.identificationNumber,
+        range: currentEquipment.range,
+        least_count: currentEquipment.leastCount,
+        calibration_date: currentEquipment.calibrationDate || null,
+        validity_date: currentEquipment.validityDate || null,
+        traceability: currentEquipment.traceability,
+        maintenance_type: currentEquipment.maintenanceType,
+        amc_schedule: currentEquipment.amcSchedule
+      })
+
+      setEquipments([...equipments, newEquipment])
+      setCurrentEquipment({
+        name: '',
+        model: '',
+        identificationNumber: '',
+        range: '',
+        leastCount: '',
+        calibrationDate: '',
+        validityDate: '',
+        traceability: '',
+        maintenanceType: '',
+        amcSchedule: null
+      })
+      setShowEquipmentForm(false)
+      toast.success('Equipment added successfully!')
+    } catch (error) {
+      console.error("Error adding equipment:", error)
+      toast.error("Failed to add equipment")
+    }
   }
 
-  const removeEquipment = (id) => {
-    setEquipments(equipments.filter(e => e.id !== id))
-    toast.success('Equipment removed')
+  const removeEquipment = async (id) => {
+    try {
+      await scopeManagementService.deleteEquipment(id)
+      setEquipments(equipments.filter(e => e.id !== id))
+      toast.success('Equipment removed')
+    } catch (error) {
+      console.error("Error removing equipment:", error)
+      toast.error("Failed to remove equipment")
+    }
   }
 
   // Scope Testing Functions
-  const handleAddScopeTest = () => {
+  const handleAddScopeTest = async () => {
     if (!currentScopeTest.clauseNumber || !currentScopeTest.equipment) {
       toast.error('Please fill in clause number and select equipment')
       return
     }
-    setScopeTests([...scopeTests, { ...currentScopeTest, id: Date.now() }])
-    setCurrentScopeTest({
-      clauseNumber: '',
-      clauseTitle: '',
-      equipment: '',
-      environmentalConditions: '',
-      products: '',
-      methodOfTest: '',
-      serialNo: ''
-    })
-    toast.success('Scope test added successfully!')
+
+    try {
+      const newTest = await scopeManagementService.createTest({
+        clause_number: currentScopeTest.clauseNumber,
+        clause_title: currentScopeTest.clauseTitle,
+        equipment: currentScopeTest.equipment,
+        environmental_conditions: currentScopeTest.environmentalConditions,
+        products: currentScopeTest.products,
+        method_of_test: currentScopeTest.methodOfTest,
+        serial_no: currentScopeTest.serialNo
+      })
+
+      setScopeTests([...scopeTests, newTest])
+      setCurrentScopeTest({
+        clauseNumber: '',
+        clauseTitle: '',
+        equipment: '',
+        environmentalConditions: '',
+        products: '',
+        methodOfTest: '',
+        serialNo: ''
+      })
+      toast.success('Scope test added successfully!')
+    } catch (error) {
+      console.error("Error adding scope test:", error)
+      toast.error("Failed to add scope test")
+    }
   }
 
-  const removeScopeTest = (id) => {
-    setScopeTests(scopeTests.filter(s => s.id !== id))
+  const removeScopeTest = async (id) => {
+    try {
+      await scopeManagementService.deleteTest(id)
+      setScopeTests(scopeTests.filter(s => s.id !== id))
+      toast.success('Scope test removed')
+    } catch (error) {
+      console.error("Error removing scope test:", error)
+      toast.error("Failed to remove scope test")
+    }
   }
 
   // Facilities Available Functions
   const addFacilityAvailable = () => {
     setFacilitiesAvailable([...facilitiesAvailable, {
-      id: Date.now(),
+      id: `temp-${Date.now()}`,
       clauseNumber: '',
       clauseTitle: '',
       equipment: '',
@@ -285,14 +433,60 @@ export default function ScopeManagement() {
     ))
   }
 
-  const removeFacilityAvailable = (id) => {
-    setFacilitiesAvailable(facilitiesAvailable.filter(f => f.id !== id))
+  const removeFacilityAvailable = async (id) => {
+    if (typeof id === 'string' && id.startsWith('temp-')) {
+      setFacilitiesAvailable(facilitiesAvailable.filter(f => f.id !== id))
+      return
+    }
+    try {
+      await scopeManagementService.deleteFacilityAvailable(id)
+      setFacilitiesAvailable(facilitiesAvailable.filter(f => f.id !== id))
+      toast.success('Facility removed')
+    } catch (error) {
+      console.error("Error removing facility:", error)
+      toast.error("Failed to remove facility")
+    }
+  }
+
+  const handleSaveFacilitiesAvailable = async () => {
+    try {
+      const savedFacilities = await Promise.all(facilitiesAvailable.map(async (item) => {
+        if (typeof item.id === 'string' && item.id.startsWith('temp-')) {
+          const { id, ...payload } = item
+          return await scopeManagementService.createFacilityAvailable({
+            clause_number: payload.clauseNumber,
+            clause_title: payload.clauseTitle,
+            equipment: payload.equipment,
+            environmental_conditions: payload.environmentalConditions,
+            products: payload.products,
+            method_of_test: payload.methodOfTest,
+            serial_no: payload.serialNo
+          })
+        } else {
+          const { id, created_at, ...payload } = item
+          return await scopeManagementService.updateFacilityAvailable(id, {
+            clause_number: payload.clauseNumber,
+            clause_title: payload.clauseTitle,
+            equipment: payload.equipment,
+            environmental_conditions: payload.environmentalConditions,
+            products: payload.products,
+            method_of_test: payload.methodOfTest,
+            serial_no: payload.serialNo
+          })
+        }
+      }))
+      setFacilitiesAvailable(savedFacilities)
+      toast.success('Facilities saved successfully!')
+    } catch (error) {
+      console.error("Error saving facilities:", error)
+      toast.error("Failed to save facilities")
+    }
   }
 
   // Facilities Not Available Functions
   const addFacilityNotAvailable = () => {
     setFacilitiesNotAvailable([...facilitiesNotAvailable, {
-      id: Date.now(),
+      id: `temp-${Date.now()}`,
       clauseNumber: '',
       clauseTitle: '',
       methodOfTest: '',
@@ -306,14 +500,54 @@ export default function ScopeManagement() {
     ))
   }
 
-  const removeFacilityNotAvailable = (id) => {
-    setFacilitiesNotAvailable(facilitiesNotAvailable.filter(f => f.id !== id))
+  const removeFacilityNotAvailable = async (id) => {
+    if (typeof id === 'string' && id.startsWith('temp-')) {
+      setFacilitiesNotAvailable(facilitiesNotAvailable.filter(f => f.id !== id))
+      return
+    }
+    try {
+      await scopeManagementService.deleteFacilityNotAvailable(id)
+      setFacilitiesNotAvailable(facilitiesNotAvailable.filter(f => f.id !== id))
+      toast.success('Facility removed')
+    } catch (error) {
+      console.error("Error removing facility:", error)
+      toast.error("Failed to remove facility")
+    }
+  }
+
+  const handleSaveFacilitiesNotAvailable = async () => {
+    try {
+      const savedFacilities = await Promise.all(facilitiesNotAvailable.map(async (item) => {
+        if (typeof item.id === 'string' && item.id.startsWith('temp-')) {
+          const { id, ...payload } = item
+          return await scopeManagementService.createFacilityNotAvailable({
+            clause_number: payload.clauseNumber,
+            clause_title: payload.clauseTitle,
+            method_of_test: payload.methodOfTest,
+            facility_not_available: payload.facilityNotAvailable
+          })
+        } else {
+          const { id, created_at, ...payload } = item
+          return await scopeManagementService.updateFacilityNotAvailable(id, {
+            clause_number: payload.clauseNumber,
+            clause_title: payload.clauseTitle,
+            method_of_test: payload.methodOfTest,
+            facility_not_available: payload.facilityNotAvailable
+          })
+        }
+      }))
+      setFacilitiesNotAvailable(savedFacilities)
+      toast.success('Facilities saved successfully!')
+    } catch (error) {
+      console.error("Error saving facilities:", error)
+      toast.error("Failed to save facilities")
+    }
   }
 
   // Reference Material Functions
   const addReferenceMaterial = () => {
     setReferenceMaterials([...referenceMaterials, {
-      id: Date.now(),
+      id: `temp-${Date.now()}`,
       name: '',
       validity: '',
       traceability: ''
@@ -326,14 +560,44 @@ export default function ScopeManagement() {
     ))
   }
 
-  const removeReferenceMaterial = (id) => {
-    setReferenceMaterials(referenceMaterials.filter(r => r.id !== id))
+  const removeReferenceMaterial = async (id) => {
+    if (typeof id === 'string' && id.startsWith('temp-')) {
+      setReferenceMaterials(referenceMaterials.filter(r => r.id !== id))
+      return
+    }
+    try {
+      await scopeManagementService.deleteReferenceMaterial(id)
+      setReferenceMaterials(referenceMaterials.filter(r => r.id !== id))
+      toast.success('Reference Material removed')
+    } catch (error) {
+      console.error("Error removing reference material:", error)
+      toast.error("Failed to remove reference material")
+    }
+  }
+
+  const handleSaveReferenceMaterials = async () => {
+    try {
+      const savedMaterials = await Promise.all(referenceMaterials.map(async (item) => {
+        if (typeof item.id === 'string' && item.id.startsWith('temp-')) {
+          const { id, ...payload } = item
+          return await scopeManagementService.createReferenceMaterial(payload)
+        } else {
+          const { id, created_at, ...payload } = item
+          return await scopeManagementService.updateReferenceMaterial(id, payload)
+        }
+      }))
+      setReferenceMaterials(savedMaterials)
+      toast.success('Reference materials saved successfully!')
+    } catch (error) {
+      console.error("Error saving reference materials:", error)
+      toast.error("Failed to save reference materials")
+    }
   }
 
   // Exclusion Functions
   const addExclusion = () => {
     setExclusions([...exclusions, {
-      id: Date.now(),
+      id: `temp-${Date.now()}`,
       clauseNumber: '',
       testName: '',
       justification: ''
@@ -346,14 +610,52 @@ export default function ScopeManagement() {
     ))
   }
 
-  const removeExclusion = (id) => {
-    setExclusions(exclusions.filter(e => e.id !== id))
+  const removeExclusion = async (id) => {
+    if (typeof id === 'string' && id.startsWith('temp-')) {
+      setExclusions(exclusions.filter(e => e.id !== id))
+      return
+    }
+    try {
+      await scopeManagementService.deleteExclusion(id)
+      setExclusions(exclusions.filter(e => e.id !== id))
+      toast.success('Exclusion removed')
+    } catch (error) {
+      console.error("Error removing exclusion:", error)
+      toast.error("Failed to remove exclusion")
+    }
+  }
+
+  const handleSaveExclusions = async () => {
+    try {
+      const savedExclusions = await Promise.all(exclusions.map(async (item) => {
+        if (typeof item.id === 'string' && item.id.startsWith('temp-')) {
+          const { id, ...payload } = item
+          return await scopeManagementService.createExclusion({
+            clause_number: payload.clauseNumber,
+            test_name: payload.testName,
+            justification: payload.justification
+          })
+        } else {
+          const { id, created_at, ...payload } = item
+          return await scopeManagementService.updateExclusion(id, {
+            clause_number: payload.clauseNumber,
+            test_name: payload.testName,
+            justification: payload.justification
+          })
+        }
+      }))
+      setExclusions(savedExclusions)
+      toast.success('Exclusions saved successfully!')
+    } catch (error) {
+      console.error("Error saving exclusions:", error)
+      toast.error("Failed to save exclusions")
+    }
   }
 
   // Testing Charges Functions
   const addTestingCharge = () => {
     setTestingCharges([...testingCharges, {
-      id: Date.now(),
+      id: `temp-${Date.now()}`,
       clauseNumber: '',
       clauseTitle: '',
       charge: '',
@@ -367,16 +669,60 @@ export default function ScopeManagement() {
     ))
   }
 
-  const removeTestingCharge = (id) => {
-    setTestingCharges(testingCharges.filter(t => t.id !== id))
+  const removeTestingCharge = async (id) => {
+    if (typeof id === 'string' && id.startsWith('temp-')) {
+      setTestingCharges(testingCharges.filter(t => t.id !== id))
+      return
+    }
+    try {
+      await scopeManagementService.deleteTestingCharge(id)
+      setTestingCharges(testingCharges.filter(t => t.id !== id))
+      toast.success('Charge removed')
+    } catch (error) {
+      console.error("Error deleting charge:", error)
+      toast.error("Failed to delete charge")
+    }
   }
 
-  const handleSaveTestingCharges = () => {
+  const handleSaveTestingCharges = async () => {
     if (!completeTestingCharge) {
       toast.error('Please enter complete testing charge')
       return
     }
-    toast.success('Testing charges saved successfully!')
+
+    try {
+      // Save Global Settings (Complete Testing Charge)
+      await scopeManagementService.updateSettings({
+        complete_testing_charge: completeTestingCharge
+      })
+
+      // Save Testing Charges List
+      const savedCharges = await Promise.all(testingCharges.map(async (item) => {
+        if (typeof item.id === 'string' && item.id.startsWith('temp-')) {
+          const { id, ...payload } = item
+          return await scopeManagementService.createTestingCharge({
+            clause_number: payload.clauseNumber,
+            clause_title: payload.clauseTitle,
+            charge: payload.charge,
+            remarks: payload.remarks
+          })
+        } else {
+          const { id, created_at, ...payload } = item
+          return await scopeManagementService.updateTestingCharge(id, {
+            clause_number: payload.clauseNumber,
+            clause_title: payload.clauseTitle,
+            charge: payload.charge,
+            remarks: payload.remarks
+          })
+        }
+      }))
+      setTestingCharges(savedCharges)
+
+      toast.success('Testing charges saved successfully!')
+    } catch (error) {
+      console.error("Error saving testing charges:", error)
+      toast.error("Failed to save data")
+    }
   }
 
   const renderILCContent = () => (
@@ -652,7 +998,7 @@ export default function ScopeManagement() {
                     <input
                       type="text"
                       value={currentScope.indianStandard}
-                      onChange={(e) => setCurrentScope({...currentScope, indianStandard: e.target.value})}
+                      onChange={(e) => setCurrentScope({ ...currentScope, indianStandard: e.target.value })}
                       placeholder="e.g., IS 2386"
                       className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
@@ -664,7 +1010,7 @@ export default function ScopeManagement() {
                     </label>
                     <select
                       value={currentScope.fieldOfTesting}
-                      onChange={(e) => setCurrentScope({...currentScope, fieldOfTesting: e.target.value})}
+                      onChange={(e) => setCurrentScope({ ...currentScope, fieldOfTesting: e.target.value })}
                       className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     >
                       <option value="">Select field</option>
@@ -681,7 +1027,7 @@ export default function ScopeManagement() {
                     <input
                       type="text"
                       value={currentScope.optimalTestingTime}
-                      onChange={(e) => setCurrentScope({...currentScope, optimalTestingTime: e.target.value})}
+                      onChange={(e) => setCurrentScope({ ...currentScope, optimalTestingTime: e.target.value })}
                       placeholder="e.g., 2 days"
                       className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
@@ -694,7 +1040,7 @@ export default function ScopeManagement() {
                     <input
                       type="text"
                       value={currentScope.testingCapacityPerMonth}
-                      onChange={(e) => setCurrentScope({...currentScope, testingCapacityPerMonth: e.target.value})}
+                      onChange={(e) => setCurrentScope({ ...currentScope, testingCapacityPerMonth: e.target.value })}
                       placeholder="e.g., 50 samples"
                       className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
@@ -759,49 +1105,49 @@ export default function ScopeManagement() {
             )}
 
             {/* Equipment List */}
-            {equipments.filter(e => 
+            {equipments.filter(e =>
               e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
               e.identificationNumber.toLowerCase().includes(searchTerm.toLowerCase())
             ).length > 0 && (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Equipment Name</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Model</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">ID Number</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Range</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Calibration</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {equipments.filter(e => 
-                      e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                      e.identificationNumber.toLowerCase().includes(searchTerm.toLowerCase())
-                    ).map((equipment) => (
-                      <tr key={equipment.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-4 text-sm font-medium text-gray-900">{equipment.name}</td>
-                        <td className="px-4 py-4 text-sm text-gray-600">{equipment.model || '-'}</td>
-                        <td className="px-4 py-4 text-sm text-gray-600">{equipment.identificationNumber}</td>
-                        <td className="px-4 py-4 text-sm text-gray-600">{equipment.range || '-'}</td>
-                        <td className="px-4 py-4 text-sm text-gray-600">
-                          {equipment.validityDate ? new Date(equipment.validityDate).toLocaleDateString() : '-'}
-                        </td>
-                        <td className="px-4 py-4 text-sm">
-                          <button
-                            onClick={() => removeEquipment(equipment.id)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Equipment Name</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Model</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">ID Number</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Range</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Calibration</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {equipments.filter(e =>
+                        e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        e.identificationNumber.toLowerCase().includes(searchTerm.toLowerCase())
+                      ).map((equipment) => (
+                        <tr key={equipment.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-4 text-sm font-medium text-gray-900">{equipment.name}</td>
+                          <td className="px-4 py-4 text-sm text-gray-600">{equipment.model || '-'}</td>
+                          <td className="px-4 py-4 text-sm text-gray-600">{equipment.identificationNumber}</td>
+                          <td className="px-4 py-4 text-sm text-gray-600">{equipment.range || '-'}</td>
+                          <td className="px-4 py-4 text-sm text-gray-600">
+                            {equipment.validityDate ? new Date(equipment.validityDate).toLocaleDateString() : '-'}
+                          </td>
+                          <td className="px-4 py-4 text-sm">
+                            <button
+                              onClick={() => removeEquipment(equipment.id)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
 
             {/* Add Equipment Form */}
             {showEquipmentForm ? (
@@ -824,7 +1170,7 @@ export default function ScopeManagement() {
                     <input
                       type="text"
                       value={currentEquipment.name}
-                      onChange={(e) => setCurrentEquipment({...currentEquipment, name: e.target.value})}
+                      onChange={(e) => setCurrentEquipment({ ...currentEquipment, name: e.target.value })}
                       placeholder="Enter equipment name"
                       className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
@@ -837,7 +1183,7 @@ export default function ScopeManagement() {
                     <input
                       type="text"
                       value={currentEquipment.model}
-                      onChange={(e) => setCurrentEquipment({...currentEquipment, model: e.target.value})}
+                      onChange={(e) => setCurrentEquipment({ ...currentEquipment, model: e.target.value })}
                       placeholder="Enter model"
                       className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
@@ -850,7 +1196,7 @@ export default function ScopeManagement() {
                     <input
                       type="text"
                       value={currentEquipment.identificationNumber}
-                      onChange={(e) => setCurrentEquipment({...currentEquipment, identificationNumber: e.target.value})}
+                      onChange={(e) => setCurrentEquipment({ ...currentEquipment, identificationNumber: e.target.value })}
                       placeholder="Enter ID number"
                       className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
@@ -863,7 +1209,7 @@ export default function ScopeManagement() {
                     <input
                       type="text"
                       value={currentEquipment.range}
-                      onChange={(e) => setCurrentEquipment({...currentEquipment, range: e.target.value})}
+                      onChange={(e) => setCurrentEquipment({ ...currentEquipment, range: e.target.value })}
                       placeholder="e.g., 0-100 mm, LC: 0.01 mm"
                       className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
@@ -876,7 +1222,7 @@ export default function ScopeManagement() {
                     <input
                       type="date"
                       value={currentEquipment.calibrationDate}
-                      onChange={(e) => setCurrentEquipment({...currentEquipment, calibrationDate: e.target.value})}
+                      onChange={(e) => setCurrentEquipment({ ...currentEquipment, calibrationDate: e.target.value })}
                       className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
                   </div>
@@ -888,7 +1234,7 @@ export default function ScopeManagement() {
                     <input
                       type="date"
                       value={currentEquipment.validityDate}
-                      onChange={(e) => setCurrentEquipment({...currentEquipment, validityDate: e.target.value})}
+                      onChange={(e) => setCurrentEquipment({ ...currentEquipment, validityDate: e.target.value })}
                       className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
                   </div>
@@ -900,7 +1246,7 @@ export default function ScopeManagement() {
                     <input
                       type="text"
                       value={currentEquipment.traceability}
-                      onChange={(e) => setCurrentEquipment({...currentEquipment, traceability: e.target.value})}
+                      onChange={(e) => setCurrentEquipment({ ...currentEquipment, traceability: e.target.value })}
                       placeholder="Enter traceability details"
                       className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
@@ -912,7 +1258,7 @@ export default function ScopeManagement() {
                     </label>
                     <select
                       value={currentEquipment.maintenanceType}
-                      onChange={(e) => setCurrentEquipment({...currentEquipment, maintenanceType: e.target.value})}
+                      onChange={(e) => setCurrentEquipment({ ...currentEquipment, maintenanceType: e.target.value })}
                       className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     >
                       <option value="">Select type</option>
@@ -1009,7 +1355,7 @@ export default function ScopeManagement() {
                   <input
                     type="text"
                     value={currentScopeTest.clauseNumber}
-                    onChange={(e) => setCurrentScopeTest({...currentScopeTest, clauseNumber: e.target.value})}
+                    onChange={(e) => setCurrentScopeTest({ ...currentScopeTest, clauseNumber: e.target.value })}
                     placeholder="e.g., 5.2.1"
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   />
@@ -1022,7 +1368,7 @@ export default function ScopeManagement() {
                   <input
                     type="text"
                     value={currentScopeTest.clauseTitle}
-                    onChange={(e) => setCurrentScopeTest({...currentScopeTest, clauseTitle: e.target.value})}
+                    onChange={(e) => setCurrentScopeTest({ ...currentScopeTest, clauseTitle: e.target.value })}
                     placeholder="Enter clause title"
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   />
@@ -1034,7 +1380,7 @@ export default function ScopeManagement() {
                   </label>
                   <select
                     value={currentScopeTest.equipment}
-                    onChange={(e) => setCurrentScopeTest({...currentScopeTest, equipment: e.target.value})}
+                    onChange={(e) => setCurrentScopeTest({ ...currentScopeTest, equipment: e.target.value })}
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   >
                     <option value="">Select equipment</option>
@@ -1051,7 +1397,7 @@ export default function ScopeManagement() {
                   <input
                     type="text"
                     value={currentScopeTest.environmentalConditions}
-                    onChange={(e) => setCurrentScopeTest({...currentScopeTest, environmentalConditions: e.target.value})}
+                    onChange={(e) => setCurrentScopeTest({ ...currentScopeTest, environmentalConditions: e.target.value })}
                     placeholder="e.g., 25°C, 65% RH"
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   />
@@ -1064,7 +1410,7 @@ export default function ScopeManagement() {
                   <input
                     type="text"
                     value={currentScopeTest.products}
-                    onChange={(e) => setCurrentScopeTest({...currentScopeTest, products: e.target.value})}
+                    onChange={(e) => setCurrentScopeTest({ ...currentScopeTest, products: e.target.value })}
                     placeholder="Applicable products"
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   />
@@ -1077,7 +1423,7 @@ export default function ScopeManagement() {
                   <input
                     type="text"
                     value={currentScopeTest.methodOfTest}
-                    onChange={(e) => setCurrentScopeTest({...currentScopeTest, methodOfTest: e.target.value})}
+                    onChange={(e) => setCurrentScopeTest({ ...currentScopeTest, methodOfTest: e.target.value })}
                     placeholder="Test method"
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   />
@@ -1203,7 +1549,7 @@ export default function ScopeManagement() {
 
             <div className="flex justify-end pt-6 border-t border-gray-200">
               <button
-                onClick={() => toast.success('Facilities saved successfully!')}
+                onClick={handleSaveFacilitiesAvailable}
                 className="px-8 py-3 bg-primary text-white rounded-xl hover:bg-primary-dark transition-colors font-medium"
               >
                 Save Facilities
@@ -1339,7 +1685,7 @@ export default function ScopeManagement() {
 
             <div className="flex justify-end pt-6 border-t border-gray-200">
               <button
-                onClick={() => toast.success('Facilities saved successfully!')}
+                onClick={handleSaveFacilitiesNotAvailable}
                 className="px-8 py-3 bg-primary text-white rounded-xl hover:bg-primary-dark transition-colors font-medium"
               >
                 Save
@@ -1461,7 +1807,7 @@ export default function ScopeManagement() {
 
             <div className="flex justify-end pt-6 border-t border-gray-200">
               <button
-                onClick={() => toast.success('Reference materials saved successfully!')}
+                onClick={handleSaveReferenceMaterials}
                 className="px-8 py-3 bg-primary text-white rounded-xl hover:bg-primary-dark transition-colors font-medium"
               >
                 Save Materials
@@ -1584,7 +1930,7 @@ export default function ScopeManagement() {
 
             <div className="flex justify-end pt-6 border-t border-gray-200">
               <button
-                onClick={() => toast.success('Exclusions saved successfully!')}
+                onClick={handleSaveExclusions}
                 className="px-8 py-3 bg-primary text-white rounded-xl hover:bg-primary-dark transition-colors font-medium"
               >
                 Save Exclusions
@@ -1742,8 +2088,8 @@ export default function ScopeManagement() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Scope Management</h1>
           <p className="text-gray-600 mt-2">
-            {showILCFirst 
-              ? 'Step 4: Inter Lab Comparison / Proficiency Testing' 
+            {showILCFirst
+              ? 'Step 4: Inter Lab Comparison / Proficiency Testing'
               : 'Step 5: Scope of Recognition & Manage Equipment'
             }
           </p>
@@ -1771,16 +2117,15 @@ export default function ScopeManagement() {
               {scopeSections.map((section) => {
                 const Icon = section.icon
                 const isActive = activeSection === section.id
-                
+
                 return (
                   <button
                     key={section.id}
                     onClick={() => setActiveSection(section.id)}
-                    className={`w-full text-left px-4 py-3 rounded-xl transition-all flex items-center gap-3 ${
-                      isActive
-                        ? 'bg-primary text-white shadow-sm'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
+                    className={`w-full text-left px-4 py-3 rounded-xl transition-all flex items-center gap-3 ${isActive
+                      ? 'bg-primary text-white shadow-sm'
+                      : 'text-gray-700 hover:bg-gray-100'
+                      }`}
                   >
                     <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-gray-400'}`} />
                     <span className="text-sm font-medium truncate">{section.name}</span>

@@ -11,6 +11,7 @@ import Badge from '../../../components/labManagement/Badge'
 import Input from '../../../components/labManagement/Input'
 import Modal from '../../../components/labManagement/Modal'
 import CreateTestExecutionForm from '../../../components/labManagement/forms/CreateTestExecutionForm'
+import SampleTestExecutionModal from '../../../components/labManagement/modals/SampleTestExecutionModal'
 
 function TestExecutions() {
   const [executions, setExecutions] = useState([])
@@ -20,10 +21,14 @@ function TestExecutions() {
   const [selectedPlan, setSelectedPlan] = useState('all')
   const [selectedStatus, setSelectedStatus] = useState('all')
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showSampleModal, setShowSampleModal] = useState(false)
+  const [selectedExecution, setSelectedExecution] = useState(null)
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
 
   const testPlanId = searchParams.get('testPlanId')
+  //... (omitting middle part to keep it simple, I better use two separate replace calls if lines are far apart or just rewrite the component start)
+
 
   useEffect(() => {
     loadTestPlans()
@@ -204,44 +209,56 @@ function TestExecutions() {
                     {execution.status}
                   </Badge>
                 </div>
-                
+
                 <h3 className="text-xl font-bold text-gray-900 mb-2">
                   Execution #{execution.id}
                 </h3>
-                
+
                 <div className="mt-auto space-y-2">
                   <div className="flex items-center text-sm text-gray-500">
                     <Clock className="w-4 h-4 mr-2" />
                     {new Date(execution.executionDate).toLocaleDateString()}
                   </div>
-                  
+
                   {execution.executedByName && (
                     <div className="flex items-center text-sm text-gray-500">
                       <User className="w-4 h-4 mr-2" />
                       {execution.executedByName}
                     </div>
                   )}
-                  
+
                   {(execution.status?.toLowerCase() === 'completed' || execution.status?.toLowerCase() === 'passed' || execution.status?.toLowerCase() === 'meet compliance') && (
                     <div className="flex items-center text-sm text-green-600 mt-2">
                       <CheckCircle className="w-4 h-4 mr-2" />
                       {execution.status}
                     </div>
                   )}
-                  
-                  {(execution.status?.toLowerCase() === 'completed' || execution.status?.toLowerCase() === 'passed' || execution.status?.toLowerCase() === 'meet compliance' || execution.status?.toLowerCase() === 'doesn\'t meet compliance') && (
-                    <div className="mt-3 pt-3 border-t border-gray-200">
+
+
+
+                  <div className="mt-3 pt-3 border-t border-gray-200 flex gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setSelectedExecution(execution)
+                        setShowSampleModal(true)
+                      }}
+                      className="flex-1 text-xs text-gray-600 hover:text-gray-900 hover:underline text-center"
+                    >
+                      View Details
+                    </button>
+                    {(execution.status?.toLowerCase() === 'completed' || execution.status?.toLowerCase() === 'passed' || execution.status?.toLowerCase() === 'meet compliance' || execution.status?.toLowerCase() === 'doesn\'t meet compliance') && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
                           navigate(`/lab/management/test-results?executionId=${execution.id}`)
                         }}
-                        className="text-xs text-primary hover:underline w-full text-left"
+                        className="flex-1 text-xs text-primary hover:underline text-center"
                       >
                         View Results →
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </Card>
             </motion.div>
@@ -263,6 +280,20 @@ function TestExecutions() {
             loadExecutions()
           }}
           onCancel={() => setShowCreateModal(false)}
+        />
+      </Modal>
+
+      {/* Sample Execution Modal */}
+      <Modal
+        isOpen={showSampleModal}
+        onClose={() => setShowSampleModal(false)}
+        title="Test Execution Details"
+        size="lg"
+      >
+        <SampleTestExecutionModal
+          isOpen={showSampleModal}
+          onClose={() => setShowSampleModal(false)}
+          execution={selectedExecution}
         />
       </Modal>
     </div>

@@ -4,6 +4,7 @@ Manages environment variables and settings using Pydantic
 """
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List
+import os
 
 
 class Settings(BaseSettings):
@@ -34,7 +35,7 @@ class Settings(BaseSettings):
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
     
     # File Upload
-    UPLOAD_DIR: str = "./uploads"
+    UPLOAD_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads")
     MAX_FILE_SIZE: int = 2097152  # 2MB
     MAX_IMAGE_SIZE: int = 1048576  # 1MB
     ALLOWED_IMAGE_TYPES: str = "image/jpeg,image/png,image/jpg"

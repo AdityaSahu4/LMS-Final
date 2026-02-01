@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Building2,
@@ -22,6 +22,7 @@ import {
   Edit2,
   Trash2
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import Button from '../../../components/labManagement/Button'
 import Input from '../../../components/labManagement/Input'
 import Card from '../../../components/labManagement/Card'
@@ -100,10 +101,12 @@ const waterSourceOptions = [
 ]
 
 export default function OrganizationDetails() {
+  const navigate = useNavigate()
   const { organizationData, updateOrganizationData } = useLabData()
   const [currentStep, setCurrentStep] = useState(1)
-  const [organizationId, setOrganizationId] = useState(localStorage.getItem('organizationId') || null)
+  const [organizationId, setOrganizationId] = useState(null)  // Always start fresh
   const [loading, setLoading] = useState(false)
+  const [checklist, setChecklist] = useState(null)  // Backend checklist data
   const [formData, setFormData] = useState(organizationData || {
     // Laboratory Details
     labName: '',
@@ -214,6 +217,27 @@ export default function OrganizationDetails() {
     // Quality Procedures
     qualityProcedures: []
   })
+
+  // Fetch checklist when navigating to step 11
+  const fetchChecklist = async () => {
+    if (!organizationId) return
+
+    try {
+      const checklistData = await organizationService.getChecklist(organizationId)
+      setChecklist(checklistData)
+    } catch (error) {
+      console.error('Failed to fetch checklist:', error)
+      toast.error('Failed to load checklist')
+    }
+  }
+
+  // Use useEffect to fetch checklist when step changes to 11
+  useEffect(() => {
+    if (currentStep === 11 && organizationId) {
+      fetchChecklist()
+    }
+  }, [currentStep, organizationId])  // Only re-run when these change
+
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -605,7 +629,6 @@ export default function OrganizationDetails() {
         })
 
         setOrganizationId(newOrg.id)
-        localStorage.setItem('organizationId', newOrg.id)
         toast.success('Organization created successfully!')
       } else if (organizationId) {
         // Update existing organization
@@ -641,10 +664,16 @@ export default function OrganizationDetails() {
       setLoading(true)
 
       // Get checklist to verify completion
-      const checklist = await organizationService.getChecklist(organizationId)
+      const checklistData = await organizationService.getChecklist(organizationId)
+      setChecklist(checklistData)  // Update checklist state
 
-      if (!checklist.is_ready_for_submission) {
-        toast.error('Please complete all required fields')
+      if (!checklistData.is_ready_for_submission) {
+        const incompleteSteps = checklistData.steps
+          .filter(step => !step.is_completed)
+          .map(step => step.step_name)
+          .join(', ')
+
+        toast.error(`Please complete the following steps: ${incompleteSteps}`)
         return
       }
 
@@ -2762,31 +2791,41 @@ export default function OrganizationDetails() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {steps.slice(0, -1).map((step, index) => {
-                        const isCompleted = validateStep(step.id)
-                        return (
-                          <tr key={step.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{index + 1}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {step.name} {!isCompleted && <span className="text-red-500">*</span>}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isCompleted ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                                }`}>
-                                {isCompleted ? 'Completed' : 'Pending'}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <button
-                                onClick={() => setCurrentStep(step.id)}
-                                className="text-primary hover:text-primary-dark"
-                              >
-                                <Edit2 className="w-4 h-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        )
-                      })}
+                      {checklist ? (
+                        // Display backend checklist data
+                        checklist.steps.map((checklistStep, index) => {
+                          const isCompleted = checklistStep.is_completed
+                          return (
+                            <tr key={checklistStep.step_id} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{checklistStep.step_id}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {checklistStep.step_name} {!isCompleted && <span className="text-red-500">*</span>}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isCompleted ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                  }`}>
+                                  {isCompleted ? 'Completed' : 'Pending'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <button
+                                  onClick={() => setCurrentStep(checklistStep.step_id)}
+                                  className="text-primary hover:text-primary-dark"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          )
+                        })
+                      ) : (
+                        // Loading state
+                        <tr>
+                          <td colSpan="4" className="px-6 py-8 text-center text-gray-500">
+                            Loading checklist...
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -2794,7 +2833,13 @@ export default function OrganizationDetails() {
                 <div className="flex justify-center pt-6">
                   <Button
                     size="lg"
-                    disabled={!steps.slice(0, -1).every(step => validateStep(step.id))}
+                    disabled={!checklist || !checklist.is_ready_for_submission}
+                    onClick={() => navigate('/lab/management/payment', {
+                      state: {
+                        organizationId,
+                        organizationName: formData.labName
+                      }
+                    })}
                     className="px-8"
                   >
                     Make Payment

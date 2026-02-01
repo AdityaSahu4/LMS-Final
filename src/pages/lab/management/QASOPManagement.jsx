@@ -28,10 +28,15 @@ function QASOPManagement() {
   const loadSOPs = async () => {
     try {
       setLoading(true)
+      console.log('Fetching SOPs from API...')
       const data = await sopService.getAll()
-      setSOPs(data)
+      console.log('SOPs loaded successfully:', data)
+      setSops(data)
     } catch (error) {
-      toast.error('Failed to load SOPs')
+      console.error('Error loading SOPs:', error)
+      console.error('Error response:', error.response)
+      console.error('Error message:', error.message)
+      toast.error(`Failed to load SOPs: ${error.message}`)
     } finally {
       setLoading(false)
     }
@@ -47,7 +52,7 @@ function QASOPManagement() {
   }
 
   const filteredSOPs = sops.filter(sop => {
-    const matchesSearch = 
+    const matchesSearch =
       sop.sopId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       sop.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       sop.approvedBy?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -166,12 +171,12 @@ function QASOPManagement() {
                     {sop.status}
                   </Badge>
                 </div>
-                
+
                 <h3 className="text-xl font-bold text-gray-900 mb-1">
                   {sop.title}
                 </h3>
                 <p className="text-sm text-gray-500 mb-3">{sop.sopId}</p>
-                
+
                 <div className="space-y-2 mb-4 flex-1">
                   <div className="text-sm">
                     <span className="text-gray-500">Version:</span>
@@ -206,7 +211,7 @@ function QASOPManagement() {
                     </div>
                   )}
                 </div>
-                
+
                 <div className="mt-auto pt-4 border-t border-gray-200">
                   <div className="flex gap-2">
                     <Button

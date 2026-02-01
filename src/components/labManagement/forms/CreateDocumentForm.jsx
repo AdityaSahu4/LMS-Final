@@ -38,7 +38,7 @@ export default function CreateDocumentForm({ document, onSuccess, onCancel }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
+
     if (!formData.title || !formData.effectiveDate || !formData.approvedBy) {
       toast.error('Please fill in all required fields')
       return
@@ -46,16 +46,43 @@ export default function CreateDocumentForm({ document, onSuccess, onCancel }) {
 
     try {
       setLoading(true)
+
+      // Prepare submit data - don't send File objects
+      const submitData = {
+        ...formData,
+        // Only send string URLs or null for documentUrl, not File objects
+        documentUrl: (formData.documentUrl && typeof formData.documentUrl === 'string') ? formData.documentUrl : null
+      }
+
       if (document) {
-        await documentControlService.update(document.id, formData)
+        await documentControlService.update(document.id, submitData)
         toast.success('Document updated successfully!')
       } else {
-        await documentControlService.create(formData)
+        await documentControlService.create(submitData)
         toast.success('Document created successfully!')
       }
       onSuccess()
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to save document')
+      console.error('Error saving document:', error)
+      console.error('Error response:', error.response?.data)
+
+      // Handle FastAPI validation errors
+      let errorMessage = 'Failed to save document'
+      if (error.response?.data?.detail) {
+        if (Array.isArray(error.response.data.detail)) {
+          errorMessage = error.response.data.detail
+            .map(err => `${err.loc.join('.')}: ${err.msg}`)
+            .join(', ')
+        } else if (typeof error.response.data.detail === 'string') {
+          errorMessage = error.response.data.detail
+        }
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -171,7 +198,7 @@ export default function CreateDocumentForm({ document, onSuccess, onCancel }) {
           </select>
         </div>
       </div>
-      
+
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Document File (PDF, max 10MB)

@@ -20,7 +20,7 @@ export default function CreateQAAuditForm({ onSuccess, onCancel }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
+
     if (!formData.date || !formData.auditorName || !formData.scope) {
       toast.error('Please fill in all required fields')
       return
@@ -38,7 +38,26 @@ export default function CreateQAAuditForm({ onSuccess, onCancel }) {
       toast.success('Audit created successfully!')
       onSuccess()
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to create audit')
+      console.error('Error saving audit:', error)
+      console.error('Error response:', error.response?.data)
+
+      // Handle FastAPI validation errors
+      let errorMessage = 'Failed to create audit'
+      if (error.response?.data?.detail) {
+        if (Array.isArray(error.response.data.detail)) {
+          errorMessage = error.response.data.detail
+            .map(err => `${err.loc.join('.')}: ${err.msg}`)
+            .join(', ')
+        } else if (typeof error.response.data.detail === 'string') {
+          errorMessage = error.response.data.detail
+        }
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }

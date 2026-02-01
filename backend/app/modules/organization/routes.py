@@ -31,14 +31,15 @@ def serialize_organization(org):
     }
 
 
-@router.post("/", response_model=schemas.OrganizationResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_organization(
     org_data: schemas.OrganizationCreate,
     db: Session = Depends(get_db)
 ):
     """Create a new organization"""
     organization = services.OrganizationService.create_organization(db, org_data)
-    return organization
+    # Return simplified response to avoid lazy-loading issues with empty relationships
+    return serialize_organization(organization)
 
 
 @router.get("/{organization_id}", response_model=schemas.OrganizationResponse)
@@ -76,7 +77,7 @@ async def delete_organization(
 # Step-wise Update Endpoints
 # ============================================================================
 
-@router.put("/{organization_id}/laboratory-details", response_model=schemas.OrganizationResponse)
+@router.put("/{organization_id}/laboratory-details")
 async def update_laboratory_details(
     organization_id: UUID,
     data: schemas.LaboratoryDetailsUpdate,
@@ -84,7 +85,7 @@ async def update_laboratory_details(
 ):
     """Update laboratory details (Step 1)"""
     organization = services.OrganizationService.update_laboratory_details(db, organization_id, data)
-    return organization
+    return serialize_organization(organization)
 
 
 @router.put("/{organization_id}/registered-office")
@@ -153,6 +154,7 @@ async def update_compliance_documents(
     db: Session = Depends(get_db)
 ):
     """Update compliance documents (Step 5)"""
+    print(f"DEBUG: Received compliance documents data: {data.model_dump()}")
     organization = services.OrganizationService.update_compliance_documents(db, organization_id, data)
     return serialize_organization(organization)
 
@@ -237,11 +239,11 @@ async def get_checklist(
     return checklist
 
 
-@router.post("/{organization_id}/submit", response_model=schemas.OrganizationResponse)
+@router.post("/{organization_id}/submit")
 async def submit_organization(
     organization_id: UUID,
     db: Session = Depends(get_db)
 ):
     """Submit organization for approval"""
     organization = services.OrganizationService.submit_organization(db, organization_id)
-    return organization
+    return serialize_organization(organization)

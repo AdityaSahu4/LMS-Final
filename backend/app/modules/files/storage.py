@@ -58,7 +58,8 @@ class FileStorageService:
     async def save_file(
         file: UploadFile,
         subfolder: str = "documents",
-        file_type: str = "document"
+        file_type: str = "document",
+        organization_id: Optional[str] = None
     ) -> str:
         """
         Save uploaded file to storage
@@ -67,6 +68,7 @@ class FileStorageService:
             file: Uploaded file
             subfolder: Subfolder to save file in
             file_type: Type of file (image or document)
+            organization_id: Optional organization ID to prefix filename
         
         Returns:
             File URL/path
@@ -78,8 +80,8 @@ class FileStorageService:
             # Validate file
             FileStorageService.validate_file(file, file_type)
             
-            # Sanitize filename
-            safe_filename = sanitize_filename(file.filename)
+            # Sanitize filename with organization_id prefix
+            safe_filename = sanitize_filename(file.filename, prefix=organization_id)
             
             # Create full path
             upload_dir = Path(settings.UPLOAD_DIR) / subfolder
@@ -123,11 +125,11 @@ class FileStorageService:
             return False
     
     @staticmethod
-    async def save_logo(file: UploadFile) -> str:
+    async def save_logo(file: UploadFile, organization_id: Optional[str] = None) -> str:
         """Save laboratory logo"""
-        return await FileStorageService.save_file(file, "logos", "image")
+        return await FileStorageService.save_file(file, "logos", "image", organization_id)
     
     @staticmethod
-    async def save_document(file: UploadFile, doc_type: str = "general") -> str:
+    async def save_document(file: UploadFile, doc_type: str = "general", organization_id: Optional[str] = None) -> str:
         """Save document file"""
-        return await FileStorageService.save_file(file, f"documents/{doc_type}", "document")
+        return await FileStorageService.save_file(file, f"documents/{doc_type}", "document", organization_id)

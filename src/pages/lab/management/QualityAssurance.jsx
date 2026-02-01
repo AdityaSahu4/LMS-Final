@@ -1,19 +1,108 @@
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import { 
-  Shield, 
-  FileText, 
-  CheckCircle, 
-  ClipboardCheck, 
+import { useEffect, useState } from 'react'
+import {
+  Shield,
+  FileText,
+  CheckCircle,
+  ClipboardCheck,
   AlertTriangle,
   FolderOpen,
   BarChart3,
   ChevronRight
 } from 'lucide-react'
 import Card from '../../../components/labManagement/Card'
+import {
+  sopService,
+  qcService,
+  auditService,
+  ncCapaService,
+  documentControlService
+} from '../../../services/labManagementApi'
 
 function QualityAssurance() {
   const navigate = useNavigate()
+  const [stats, setStats] = useState({
+    sop: { total: 0, active: 0, underReview: 0 },
+    qc: { total: 0, passing: 0, failing: 0 },
+    audit: { total: 0, completed: 0, inProgress: 0 },
+    ncCapa: { open: 0, inProgress: 0, closed: 0 },
+    documents: { total: 0, locked: 0, active: 0 },
+    reports: { compliance: 0, alerts: 0 }
+  })
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadAllStats()
+  }, [])
+
+  const loadAllStats = async () => {
+    try {
+      setLoading(true)
+
+      // Fetch all data in parallel
+      const [sops, qcChecks, audits, ncCapas, documents] = await Promise.all([
+        sopService.getAll().catch(() => []),
+        qcService.getAll().catch(() => []),
+        auditService.getAll().catch(() => []),
+        ncCapaService.getAll().catch(() => []),
+        documentControlService.getAll().catch(() => [])
+      ])
+
+      // Calculate SOP stats
+      const sopStats = {
+        total: sops.length,
+        active: sops.filter(s => s.status === 'Active').length,
+        underReview: sops.filter(s => s.status === 'Under Review').length
+      }
+
+      // Calculate QC stats
+      const qcStats = {
+        total: qcChecks.length,
+        passing: qcChecks.filter(q => q.status === 'Pass').length,
+        failing: qcChecks.filter(q => q.status === 'Fail').length
+      }
+
+      // Calculate Audit stats
+      const auditStats = {
+        total: audits.length,
+        completed: audits.filter(a => a.status === 'Completed').length,
+        inProgress: audits.filter(a => a.status === 'In Progress').length
+      }
+
+      // Calculate NC/CAPA stats
+      const ncCapaStats = {
+        open: ncCapas.filter(n => n.status === 'Open').length,
+        inProgress: ncCapas.filter(n => n.status === 'In Progress').length,
+        closed: ncCapas.filter(n => n.status === 'Closed').length
+      }
+
+      // Calculate Document stats
+      const docStats = {
+        total: documents.length,
+        locked: documents.filter(d => d.locked).length,
+        active: documents.filter(d => d.status === 'Active').length
+      }
+
+      // Calculate compliance score (simple average for now)
+      const complianceScore = qcStats.total > 0
+        ? Math.round((qcStats.passing / qcStats.total) * 100)
+        : 0
+
+      setStats({
+        sop: sopStats,
+        qc: qcStats,
+        audit: auditStats,
+        ncCapa: ncCapaStats,
+        documents: docStats,
+        reports: { compliance: complianceScore, alerts: qcStats.failing }
+      })
+    } catch (error) {
+      console.error('Error loading QA stats:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const sections = [
     {
@@ -23,7 +112,7 @@ function QualityAssurance() {
       icon: FileText,
       color: 'from-blue-500 to-blue-600',
       route: '/lab/management/qa/sop',
-      stats: { total: 12, active: 10, underReview: 2 }
+      stats: stats.sop
     },
     {
       id: 'qc',
@@ -32,7 +121,7 @@ function QualityAssurance() {
       icon: CheckCircle,
       color: 'from-green-500 to-green-600',
       route: '/lab/management/qa/qc',
-      stats: { total: 8, passing: 7, failing: 1 }
+      stats: stats.qc
     },
     {
       id: 'audit',
@@ -41,7 +130,7 @@ function QualityAssurance() {
       icon: ClipboardCheck,
       color: 'from-purple-500 to-purple-600',
       route: '/lab/management/qa/audit',
-      stats: { total: 5, completed: 3, inProgress: 2 }
+      stats: stats.audit
     },
     {
       id: 'nc-capa',
@@ -50,7 +139,7 @@ function QualityAssurance() {
       icon: AlertTriangle,
       color: 'from-orange-500 to-orange-600',
       route: '/lab/management/qa/nc-capa',
-      stats: { open: 2, inProgress: 1, closed: 15 }
+      stats: stats.ncCapa
     },
     {
       id: 'documents',
@@ -59,7 +148,7 @@ function QualityAssurance() {
       icon: FolderOpen,
       color: 'from-indigo-500 to-indigo-600',
       route: '/lab/management/qa/documents',
-      stats: { total: 45, locked: 12, active: 33 }
+      stats: stats.documents
     },
     {
       id: 'reports',
@@ -68,9 +157,20 @@ function QualityAssurance() {
       icon: BarChart3,
       color: 'from-teal-500 to-teal-600',
       route: '/lab/management/qa/reports',
-      stats: { compliance: 87.5, alerts: 3 }
+      stats: stats.reports
     },
   ]
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
+          <p className="mt-4 text-gray-600">Loading Quality Assurance data...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -114,15 +214,15 @@ function QualityAssurance() {
                   </div>
                   <ChevronRight className="w-5 h-5 text-gray-400" />
                 </div>
-                
+
                 <h3 className="text-xl font-bold text-gray-900 mb-2">
                   {section.title}
                 </h3>
-                
+
                 <p className="text-sm text-gray-600 mb-4 flex-1">
                   {section.description}
                 </p>
-                
+
                 <div className="mt-auto pt-4 border-t border-gray-200">
                   <div className="flex items-center justify-between text-sm">
                     {section.id === 'sop' && (

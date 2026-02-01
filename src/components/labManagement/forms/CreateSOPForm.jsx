@@ -48,7 +48,7 @@ export default function CreateSOPForm({ sop, onSuccess, onCancel }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
+
     if (!formData.title || !formData.effectiveDate || !formData.approvedBy) {
       toast.error('Please fill in all required fields')
       return
@@ -56,13 +56,30 @@ export default function CreateSOPForm({ sop, onSuccess, onCancel }) {
 
     try {
       setLoading(true)
+
+      // Process linked items
+      const linkedTests = linkedTestsInput.split(',').map(t => t.trim()).filter(t => t)
+      const linkedInstruments = linkedInstrumentsInput.split(',').map(i => i.trim()).filter(i => i)
+      const linkedDepartments = linkedDepartmentsInput.split(',').map(d => d.trim()).filter(d => d)
+
+      // Prepare submit data with proper null handling
       const submitData = {
-        ...formData,
-        linkedTests: linkedTestsInput.split(',').map(t => t.trim()).filter(t => t),
-        linkedInstruments: linkedInstrumentsInput.split(',').map(i => i.trim()).filter(i => i),
-        linkedDepartments: linkedDepartmentsInput.split(',').map(d => d.trim()).filter(d => d)
+        sopId: formData.sopId || undefined,
+        title: formData.title,
+        category: formData.category,
+        version: formData.version,
+        status: formData.status,
+        effectiveDate: formData.effectiveDate,
+        nextReviewDate: formData.nextReviewDate || null,
+        approvedBy: formData.approvedBy,
+        // Don't send File objects - only send string URLs or null
+        documentUrl: (formData.documentUrl && typeof formData.documentUrl === 'string') ? formData.documentUrl : null,
+        linkedTests: linkedTests.length > 0 ? linkedTests : null,
+        linkedInstruments: linkedInstruments.length > 0 ? linkedInstruments : null,
+        linkedDepartments: linkedDepartments.length > 0 ? linkedDepartments : null,
+        revisionHistory: null
       }
-      
+
       if (sop) {
         await sopService.update(sop.id, submitData)
         toast.success('SOP updated successfully!')
@@ -72,7 +89,27 @@ export default function CreateSOPForm({ sop, onSuccess, onCancel }) {
       }
       onSuccess()
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to save SOP')
+      console.error('Error saving SOP:', error)
+      console.error('Error response:', error.response?.data)
+
+      // Handle FastAPI validation errors
+      let errorMessage = 'Failed to save SOP'
+      if (error.response?.data?.detail) {
+        if (Array.isArray(error.response.data.detail)) {
+          // FastAPI validation errors are arrays of objects
+          errorMessage = error.response.data.detail
+            .map(err => `${err.loc.join('.')}: ${err.msg}`)
+            .join(', ')
+        } else if (typeof error.response.data.detail === 'string') {
+          errorMessage = error.response.data.detail
+        }
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -164,7 +201,7 @@ export default function CreateSOPForm({ sop, onSuccess, onCancel }) {
           </select>
         </div>
       </div>
-      
+
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Linked Tests (comma-separated)
@@ -175,7 +212,7 @@ export default function CreateSOPForm({ sop, onSuccess, onCancel }) {
           placeholder="EMC Compliance Test, RF Emission Test"
         />
       </div>
-      
+
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Linked Instruments (comma-separated)
@@ -186,7 +223,7 @@ export default function CreateSOPForm({ sop, onSuccess, onCancel }) {
           placeholder="INST-001, INST-002"
         />
       </div>
-      
+
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Linked Departments (comma-separated)
@@ -197,7 +234,7 @@ export default function CreateSOPForm({ sop, onSuccess, onCancel }) {
           placeholder="EMC Testing, Quality Assurance"
         />
       </div>
-      
+
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           SOP Document (PDF, max 10MB)
