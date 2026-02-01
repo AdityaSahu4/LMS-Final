@@ -13,9 +13,9 @@ class Settings(BaseSettings):
     # Application
     APP_NAME: str = "LMS Backend"
     APP_VERSION: str = "1.0.0"
-    DEBUG: bool = True
+    DEBUG: bool = False
     ENVIRONMENT: str = "development"
-    SECRET_KEY: str = "your-secret-key-change-this"
+    SECRET_KEY: str
     
     # Server
     HOST: str = "0.0.0.0"
@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     AWS_BUCKET_NAME: str = ""
     
     # JWT (if using authentication)
-    JWT_SECRET_KEY: str = "your-jwt-secret"
+    JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
