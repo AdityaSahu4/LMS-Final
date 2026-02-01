@@ -1,15 +1,17 @@
 import axios from 'axios'
 
-// Validate environment variable
+// Read API URL
 const API_URL = import.meta.env.VITE_API_URL
 
-if (!API_URL && import.meta.env.PROD) {
-  console.error('VITE_API_URL environment variable is required in production!')
-  throw new Error('Missing required environment variable: VITE_API_URL')
-}
+// Set base URL safely
+const API_BASE_URL = import.meta.env.DEV
+  ? (API_URL || 'http://localhost:8000')
+  : API_URL
 
-// Fallback to localhost only in development
-const API_BASE_URL = API_URL || (import.meta.env.DEV ? 'http://localhost:8000' : '')
+// Warn instead of crash (Netlify-safe)
+if (!API_BASE_URL) {
+  console.warn('⚠️ VITE_API_URL is not set. API calls will fail.')
+}
 
 class ApiService {
   constructor() {
