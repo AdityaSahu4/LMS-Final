@@ -5,11 +5,8 @@
 import axios from 'axios';
 
 // API Base URL - change this for production
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-if (!API_BASE_URL) {
-    throw new Error("VITE_API_BASE_URL is not defined");
-}
+// API Base URL - from environment variables
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
 
 // Create axios instance

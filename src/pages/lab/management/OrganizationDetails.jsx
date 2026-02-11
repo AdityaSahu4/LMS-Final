@@ -107,7 +107,7 @@ export default function OrganizationDetails() {
   const [organizationId, setOrganizationId] = useState(null)  // Always start fresh
   const [loading, setLoading] = useState(false)
   const [checklist, setChecklist] = useState(null)  // Backend checklist data
-  const [formData, setFormData] = useState(organizationData || {
+  const defaultFormData = {
     // Laboratory Details
     labName: '',
     labAddress: '',
@@ -216,6 +216,11 @@ export default function OrganizationDetails() {
 
     // Quality Procedures
     qualityProcedures: []
+  }
+
+  const [formData, setFormData] = useState({
+    ...defaultFormData,
+    ...(organizationData || {})
   })
 
   // Fetch checklist when navigating to step 11

@@ -57,14 +57,14 @@ export default function ScopeManagement() {
   const [searchTerm, setSearchTerm] = useState('')
 
   // ILC/PT State
-  const [ilcProgrammes, setIlcProgrammes] = useState(scopeData.ilcProgrammes)
-  const [internalAuditFrequency, setInternalAuditFrequency] = useState(scopeData.internalAuditFrequency)
-  const [lastAuditDate, setLastAuditDate] = useState(scopeData.lastAuditDate)
-  const [managementReviewFrequency, setManagementReviewFrequency] = useState(scopeData.managementReviewFrequency)
-  const [lastReviewDate, setLastReviewDate] = useState(scopeData.lastReviewDate)
+  const [ilcProgrammes, setIlcProgrammes] = useState(scopeData?.ilcProgrammes || [])
+  const [internalAuditFrequency, setInternalAuditFrequency] = useState(scopeData?.internalAuditFrequency || '')
+  const [lastAuditDate, setLastAuditDate] = useState(scopeData?.lastAuditDate || '')
+  const [managementReviewFrequency, setManagementReviewFrequency] = useState(scopeData?.managementReviewFrequency || '')
+  const [lastReviewDate, setLastReviewDate] = useState(scopeData?.lastReviewDate || '')
 
   // Scope State
-  const [scopes, setScopes] = useState(scopeData.scopes)
+  const [scopes, setScopes] = useState(scopeData?.scopes || [])
   const [showScopeForm, setShowScopeForm] = useState(false)
   const [currentScope, setCurrentScope] = useState({
     indianStandard: '',
@@ -75,7 +75,7 @@ export default function ScopeManagement() {
   })
 
   // Equipment State
-  const [equipments, setEquipments] = useState(scopeData.equipments)
+  const [equipments, setEquipments] = useState(scopeData?.equipments || [])
   const [showEquipmentForm, setShowEquipmentForm] = useState(false)
   const [currentEquipment, setCurrentEquipment] = useState({
     name: '',
@@ -91,7 +91,7 @@ export default function ScopeManagement() {
   })
 
   // Scope Testing State
-  const [scopeTests, setScopeTests] = useState(scopeData.scopeTests)
+  const [scopeTests, setScopeTests] = useState(scopeData?.scopeTests || [])
   const [currentScopeTest, setCurrentScopeTest] = useState({
     clauseNumber: '',
     clauseTitle: '',
@@ -103,23 +103,23 @@ export default function ScopeManagement() {
   })
 
   // Facilities Available State
-  const [facilitiesAvailable, setFacilitiesAvailable] = useState(scopeData.facilitiesAvailable)
+  const [facilitiesAvailable, setFacilitiesAvailable] = useState(scopeData?.facilitiesAvailable || [])
 
   // Facilities Not Available State
-  const [facilitiesNotAvailable, setFacilitiesNotAvailable] = useState(scopeData.facilitiesNotAvailable)
-  const [allFacilitiesAvailable, setAllFacilitiesAvailable] = useState(scopeData.allFacilitiesAvailable)
+  const [facilitiesNotAvailable, setFacilitiesNotAvailable] = useState(scopeData?.facilitiesNotAvailable || [])
+  const [allFacilitiesAvailable, setAllFacilitiesAvailable] = useState(scopeData?.allFacilitiesAvailable || false)
 
   // Reference Material State
-  const [referenceMaterials, setReferenceMaterials] = useState(scopeData.referenceMaterials)
-  const [referenceMaterialNA, setReferenceMaterialNA] = useState(scopeData.referenceMaterialNA)
+  const [referenceMaterials, setReferenceMaterials] = useState(scopeData?.referenceMaterials || [])
+  const [referenceMaterialNA, setReferenceMaterialNA] = useState(scopeData?.referenceMaterialNA || false)
 
   // Exclusion State
-  const [exclusions, setExclusions] = useState(scopeData.exclusions)
-  const [exclusionNA, setExclusionNA] = useState(scopeData.exclusionNA)
+  const [exclusions, setExclusions] = useState(scopeData?.exclusions || [])
+  const [exclusionNA, setExclusionNA] = useState(scopeData?.exclusionNA || false)
 
   // Testing Charges State
-  const [testingCharges, setTestingCharges] = useState(scopeData.testingCharges)
-  const [completeTestingCharge, setCompleteTestingCharge] = useState(scopeData.completeTestingCharge)
+  const [testingCharges, setTestingCharges] = useState(scopeData?.testingCharges || [])
+  const [completeTestingCharge, setCompleteTestingCharge] = useState(scopeData?.completeTestingCharge || '')
 
 
   // Fetch data on mount
