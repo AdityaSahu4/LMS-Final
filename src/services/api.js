@@ -6,7 +6,13 @@ import axios from 'axios';
 
 // API Base URL - change this for production
 // API Base URL - from environment variables
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = (() => {
+    const url = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    if (url.endsWith('/api/v1')) {
+        return url;
+    }
+    return `${url.replace(/\/$/, '')}/api/v1`;
+})();
 
 
 // Create axios instance
