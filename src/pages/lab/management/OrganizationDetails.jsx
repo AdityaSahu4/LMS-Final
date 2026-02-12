@@ -244,6 +244,14 @@ export default function OrganizationDetails() {
   }, [currentStep, organizationId])  // Only re-run when these change
 
 
+  // Reset organization data on mount to ensure fresh state for new entries
+  useEffect(() => {
+    if (!organizationId) {
+      updateOrganizationData(null)
+      setFormData(defaultFormData)
+    }
+  }, []) // Run once on mount
+
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
@@ -286,7 +294,7 @@ export default function OrganizationDetails() {
     setFormData(prev => ({
       ...prev,
       topManagement: [...prev.topManagement, {
-        id: prev.topManagement.length + 1,
+        id: Date.now(), // Use timestamp for unique ID
         name: '',
         designation: '',
         mobile: '',

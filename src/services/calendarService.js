@@ -8,7 +8,22 @@ import {
   rfqsService
 } from './labManagementApi'
 
-const API_BASE_URL = 'http://localhost:8000/api/v1'
+// Read API URL
+const API_URL = import.meta.env.VITE_API_URL
+
+// Set base URL safely
+const API_BASE_URL = (() => {
+  const url = import.meta.env.DEV
+    ? (API_URL || 'http://localhost:8000')
+    : API_URL
+
+  if (!url) return 'http://localhost:8000/api/v1'
+
+  if (url.endsWith('/api/v1')) {
+    return url
+  }
+  return `${url.replace(/\/$/, '')}/api/v1`
+})()
 
 /**
  * Calendar Service - Aggregates all date-related events from various services
