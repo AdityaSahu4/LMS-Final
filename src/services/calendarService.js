@@ -7,23 +7,7 @@ import {
   samplesService,
   rfqsService
 } from './labManagementApi'
-
-// Read API URL
-const API_URL = import.meta.env.VITE_API_URL
-
-// Set base URL safely
-const API_BASE_URL = (() => {
-  const url = import.meta.env.DEV
-    ? (API_URL || 'http://localhost:8000')
-    : API_URL
-
-  if (!url) return 'http://localhost:8000/api/v1'
-
-  if (url.endsWith('/api/v1')) {
-    return url
-  }
-  return `${url.replace(/\/$/, '')}/api/v1`
-})()
+import api from './api'
 
 /**
  * Calendar Service - Aggregates all date-related events from various services
@@ -96,20 +80,8 @@ const calendarApi = {
    * Create a new calendar event
    */
   async createEvent(eventData) {
-    const response = await fetch(`${API_BASE_URL}/calendar/events`, {
-      method: 'POST',
-      mode: 'cors',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(eventData)
-    })
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.detail || 'Failed to create event')
-    }
-    return response.json()
+    const response = await api.post('/calendar/events', eventData)
+    return response
   },
 
   /**
@@ -124,62 +96,31 @@ const calendarApi = {
     if (params.skip) queryParams.append('skip', params.skip)
     if (params.limit) queryParams.append('limit', params.limit)
 
-    const response = await fetch(`${API_BASE_URL}/calendar/events?${queryParams}`, {
-      mode: 'cors',
-      credentials: 'include'
-    })
-    if (!response.ok) {
-      throw new Error('Failed to fetch events')
-    }
-    return response.json()
+    const response = await api.get(`/calendar/events?${queryParams}`)
+    return response
   },
 
   /**
    * Get a specific event by ID
    */
   async getEvent(eventId) {
-    const response = await fetch(`${API_BASE_URL}/calendar/events/${eventId}`, {
-      mode: 'cors',
-      credentials: 'include'
-    })
-    if (!response.ok) {
-      throw new Error('Failed to fetch event')
-    }
-    return response.json()
+    const response = await api.get(`/calendar/events/${eventId}`)
+    return response
   },
 
   /**
    * Update an event
    */
   async updateEvent(eventId, eventData) {
-    const response = await fetch(`${API_BASE_URL}/calendar/events/${eventId}`, {
-      method: 'PUT',
-      mode: 'cors',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(eventData)
-    })
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.detail || 'Failed to update event')
-    }
-    return response.json()
+    const response = await api.put(`/calendar/events/${eventId}`, eventData)
+    return response
   },
 
   /**
    * Delete an event
    */
   async deleteEvent(eventId) {
-    const response = await fetch(`${API_BASE_URL}/calendar/events/${eventId}`, {
-      method: 'DELETE',
-      mode: 'cors',
-      credentials: 'include'
-    })
-    if (!response.ok) {
-      throw new Error('Failed to delete event')
-    }
+    await api.delete(`/calendar/events/${eventId}`)
     return true
   },
 
@@ -187,14 +128,8 @@ const calendarApi = {
    * Search events
    */
   async searchEvents(query, limit = 50) {
-    const response = await fetch(`${API_BASE_URL}/calendar/events/search/${encodeURIComponent(query)}?limit=${limit}`, {
-      mode: 'cors',
-      credentials: 'include'
-    })
-    if (!response.ok) {
-      throw new Error('Failed to search events')
-    }
-    return response.json()
+    const response = await api.get(`/calendar/events/search/${encodeURIComponent(query)}?limit=${limit}`)
+    return response
   }
 }
 
